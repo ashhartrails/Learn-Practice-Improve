@@ -32,6 +32,9 @@ dependencies {
     implementation(project(":feature:create"))
     implementation(project(":feature:subject"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:topic"))
+    implementation(project(":feature:test"))
+    implementation(project(":feature:progress"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

@@ -9,20 +9,30 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,130 +46,165 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.learnanything.core.model.Chapter
-import com.example.learnanything.core.model.Topic
+import com.example.learnanything.core.model.NextStep
 import com.example.learnanything.core.ui.components.EmptyState
+import kotlin.math.roundToInt
 
-/** Subject map: chapters and topics. Topic details open in a bottom sheet. */
+/** Subject map: progress, chapters, topics and quizzes. The one primary action is Continue. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubjectScreen(subjectId: String, onBack: () -> Unit) {
+fun SubjectScreen(
+    subjectId: String,
+    onOpenTopic: (String) -> Unit,
+    onOpenQuiz: (String) -> Unit,
+    onEditOutline: (String) -> Unit,
+    onBack: () -> Unit,
+) {
     val viewModel = hiltViewModel<SubjectViewModel, SubjectViewModel.Factory>(
-        key = subjectId,
-        creationCallback = { factory -> factory.create(subjectId) },
+        key = "subject-$subjectId",
+        creationCallback = { it.create(subjectId) },
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var openTopic by remember { mutableStateOf<Topic?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        (state as? SubjectUiState.Ready)?.outline?.subject?.title ?: "",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Text((state as? SubjectUiState.Ready)?.outline?.subject?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                },
+                actions = {
+                    IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Edit outline") }, onClick = { menuOpen = false; onEditOutline(subjectId) })
+                        DropdownMenuItem(text = { Text("Delete course") }, onClick = { menuOpen = false; confirmDelete = true })
                     }
                 },
             )
         },
+        floatingActionButton = {
+            when (val next = (state as? SubjectUiState.Ready)?.next) {
+                is NextStep.OpenTopic -> ExtendedFloatingActionButton(
+                    onClick = { onOpenTopic(next.topicId) },
+                    icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                    text = { Text("Continue: ${next.title}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                )
+                is NextStep.TakeQuiz -> ExtendedFloatingActionButton(
+                    onClick = { onOpenQuiz(next.chapterId) },
+                    icon = { Icon(Icons.Default.Star, contentDescription = null) },
+                    text = { Text("Take the chapter quiz") },
+                )
+                else -> Unit
+            }
+        },
     ) { padding ->
         when (val s = state) {
-            SubjectUiState.Loading -> Box(Modifier.fillMaxSize().padding(padding), Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SubjectUiState.Loading -> Box(Modifier.fillMaxSize().padding(padding), Alignment.Center) { CircularProgressIndicator() }
             SubjectUiState.NotFound -> EmptyState("Course not found", "It may have been deleted.", Modifier.padding(padding))
             is SubjectUiState.Ready -> LazyColumn(
                 contentPadding = PaddingValues(
                     start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 24.dp,
+                    bottom = padding.calculateBottomPadding() + 96.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item {
-                    Text(
-                        s.outline.subject.summary,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                item { Header(s) }
                 items(s.outline.chapters, key = { it.id }) { chapter ->
-                    ChapterCard(chapter, onTopicClick = { openTopic = it })
+                    ChapterCard(
+                        chapter = chapter,
+                        nextTopicId = (s.next as? NextStep.OpenTopic)?.topicId,
+                        onTopicClick = onOpenTopic,
+                        onQuizClick = { onOpenQuiz(chapter.id) },
+                    )
                 }
             }
         }
     }
 
-    openTopic?.let { topic ->
-        ModalBottomSheet(onDismissRequest = { openTopic = null }) {
-            TopicDetails(topic)
-        }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete this course?") },
+            text = { Text("Its lessons and progress are removed from this phone.") },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; viewModel.delete(onBack) }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 }
 
 @Composable
-private fun ChapterCard(chapter: Chapter, onTopicClick: (Topic) -> Unit) {
+private fun Header(s: SubjectUiState.Ready) {
+    val total = s.outline.topicCount
+    val done = s.outline.completedTopicCount
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(s.outline.subject.summary, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LinearProgressIndicator(progress = { if (total == 0) 0f else done.toFloat() / total }, modifier = Modifier.fillMaxWidth())
+        Text(
+            if (s.next is NextStep.CourseComplete) "Course complete. Well done!" else "$done of $total topics done",
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+@Composable
+private fun ChapterCard(chapter: Chapter, nextTopicId: String?, onTopicClick: (String) -> Unit, onQuizClick: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 12.dp)) {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    "Chapter ${chapter.order + 1}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Chapter ${chapter.order + 1}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    if (chapter.isFinished) Text("Finished", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
                 Text(chapter.title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    chapter.goal,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-                )
+                Text(chapter.goal, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
             }
-            chapter.topics.forEachIndexed { i, topic ->
-                if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            chapter.topics.forEach { topic ->
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onTopicClick(topic) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().clickable { onTopicClick(topic.id) }.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(topic.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    Text(
-                        "${topic.estimatedMinutes} min",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (topic.isComplete) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = "Done", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    } else if (topic.id == nextTopicId) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Next", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                    } else {
+                        Box(Modifier.size(20.dp))
+                    }
+                    Text(topic.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(start = 12.dp))
+                    Text("${topic.estimatedMinutes} min", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            val gate = chapter.gate
+            val quizLabel = when {
+                gate?.passed == true -> "Chapter quiz: passed (${(gate.score * 100).roundToInt()}%)"
+                gate != null -> "Chapter quiz: best ${(gate.score * 100).roundToInt()}%, 80% to pass"
+                chapter.topicsDone -> "Chapter quiz: ready"
+                else -> "Chapter quiz: after the topics"
+            }
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = chapter.topicsDone, onClick = onQuizClick).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (gate?.passed == true) Icons.Default.CheckCircle else Icons.Default.Star,
+                    contentDescription = null,
+                    tint = if (chapter.topicsDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    quizLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (chapter.topicsDone) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun TopicDetails(topic: Topic) {
-    Column(
-        Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(topic.title, style = MaterialTheme.typography.titleLarge)
-        Text("About ${topic.estimatedMinutes} minutes", style = MaterialTheme.typography.labelLarge)
-        Text("You will be able to", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-        topic.objectives.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-        if (topic.prerequisites.isNotEmpty()) {
-            Text("Builds on", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-            topic.prerequisites.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-        }
-        Text(
-            "The lesson is written the first time you open this topic (next milestone).",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 12.dp),
-        )
     }
 }

@@ -24,11 +24,18 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.example.learnanything.core.model.Subject
+import com.example.learnanything.core.model.SubjectStatus
 import com.example.learnanything.feature.create.CreateSubjectScreen
+import com.example.learnanything.feature.create.OutlineEditorScreen
 import com.example.learnanything.feature.home.HomeScreen
 import com.example.learnanything.feature.home.LibraryScreen
+import com.example.learnanything.feature.progress.ProgressScreen
 import com.example.learnanything.feature.settings.SettingsScreen
 import com.example.learnanything.feature.subject.SubjectScreen
+import com.example.learnanything.feature.test.QuizScreen
+import com.example.learnanything.feature.test.ReviewScreen
+import com.example.learnanything.feature.topic.TopicScreen
 import kotlinx.serialization.Serializable
 
 @Serializable data object HomeKey : NavKey
@@ -36,6 +43,11 @@ import kotlinx.serialization.Serializable
 @Serializable data object YouKey : NavKey
 @Serializable data object CreateKey : NavKey
 @Serializable data class SubjectKey(val subjectId: String) : NavKey
+@Serializable data class OutlineEditorKey(val subjectId: String) : NavKey
+@Serializable data class TopicKey(val topicId: String) : NavKey
+@Serializable data class QuizKey(val chapterId: String) : NavKey
+@Serializable data object ReviewKey : NavKey
+@Serializable data object SettingsKey : NavKey
 
 private data class Tab(val key: NavKey, val label: String, val icon: ImageVector)
 
@@ -77,33 +89,76 @@ fun LearnApp() {
                     rememberViewModelStoreNavEntryDecorator(),
                 ),
                 entryProvider = entryProvider {
+                    val openSubject: (Subject) -> Unit = { subject ->
+                        backStack.add(if (subject.status == SubjectStatus.DRAFT) OutlineEditorKey(subject.id) else SubjectKey(subject.id))
+                    }
                     entry<HomeKey> {
                         HomeScreen(
                             onNewSubject = { backStack.add(CreateKey) },
+                            onOpenSubject = openSubject,
+                            onOpenTopic = { backStack.add(TopicKey(it)) },
+                            onOpenQuiz = { backStack.add(QuizKey(it)) },
+                            onOpenReview = { backStack.add(ReviewKey) },
+                        )
+                    }
+                    entry<LibraryKey> { LibraryScreen(onOpenSubject = openSubject) }
+                    entry<YouKey> {
+                        ProgressScreen(
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onOpenReview = { backStack.add(ReviewKey) },
                             onOpenSubject = { backStack.add(SubjectKey(it)) },
                         )
                     }
-                    entry<LibraryKey> {
-                        LibraryScreen(onOpenSubject = { backStack.add(SubjectKey(it)) })
-                    }
-                    entry<YouKey> { SettingsScreen() }
+                    entry<SettingsKey> { SettingsScreen(onBack = { backStack.removeLastOrNull() }) }
                     entry<CreateKey> {
                         CreateSubjectScreen(
-                            onCreated = { id ->
-                                backStack.removeLastOrNull()
-                                backStack.add(SubjectKey(id))
-                            },
-                            onOpenSettings = { backStack.switchTab(YouKey) },
+                            onCreated = { id -> backStack.replaceTop(OutlineEditorKey(id)) },
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<OutlineEditorKey> { key ->
+                        OutlineEditorScreen(
+                            subjectId = key.subjectId,
+                            onStarted = { id -> backStack.replaceTop(SubjectKey(id)) },
                             onBack = { backStack.removeLastOrNull() },
                         )
                     }
                     entry<SubjectKey> { key ->
-                        SubjectScreen(subjectId = key.subjectId, onBack = { backStack.removeLastOrNull() })
+                        SubjectScreen(
+                            subjectId = key.subjectId,
+                            onOpenTopic = { backStack.add(TopicKey(it)) },
+                            onOpenQuiz = { backStack.add(QuizKey(it)) },
+                            onEditOutline = { backStack.add(OutlineEditorKey(it)) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
                     }
+                    entry<TopicKey> { key ->
+                        TopicScreen(
+                            topicId = key.topicId,
+                            onFinished = { backStack.removeLastOrNull() },
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<QuizKey> { key ->
+                        QuizScreen(
+                            chapterId = key.chapterId,
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<ReviewKey> { ReviewScreen(onBack = { backStack.removeLastOrNull() }) }
                 },
             )
         }
     }
+}
+
+/** Replaces the current screen, e.g. New subject → editor → course, so Back skips finished steps. */
+private fun NavBackStack<NavKey>.replaceTop(key: NavKey) {
+    removeLastOrNull()
+    add(key)
 }
 
 /** Tabs are roots: switching tab replaces the whole back stack. */

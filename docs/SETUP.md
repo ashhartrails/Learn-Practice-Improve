@@ -89,6 +89,14 @@ Menu names vary a little by brand. These are for Pixel and stock Android; on Sam
 8. **Gate check:** swipe the app away, reopen it, and the course is still there under Home and Library.
    That shows the outline was generated, validated and saved on the phone.
 
+### Trying the M1 learning loop
+1. **Home → New subject**, enter a goal, then tap **Next**. Answer the 2 or 3 questions (or skip any), then tap **Build my course**.
+2. The **outline editor** opens. Tap any chapter or topic to rename, move or delete it, or use **Add topic**. Then tap **Start course**.
+3. Tap **Continue** to open the first topic. The lesson is written the first time you open it, which takes a few seconds, then it's saved on the phone.
+4. Swipe the explanation cards, try the practice question, answer the check questions, then tap **Finish topic**.
+5. When every topic in a chapter is done, tap **Take the chapter quiz**. You need 80% to pass. Every answer is checked by code and labelled **Exact**.
+6. **You** shows your streak, mastery and reviews due. The gear icon opens Settings.
+
 ### Wireless option (Android 11+, same Wi-Fi network)
 **Developer options → Wireless debugging → On**. Then in Android Studio, open the device menu,
 choose **Pair Devices Using Wi-Fi**, and scan the QR code from the phone's **Wireless debugging → Pair device with QR code**.

@@ -11,11 +11,13 @@ import com.example.learnanything.core.ai.ProviderRouter
 import com.example.learnanything.core.ai.StructuredCaller
 import com.example.learnanything.core.ai.validation.JsonSchemaValidator
 import com.example.learnanything.core.data.repository.SubjectRepository
+import com.example.learnanything.core.data.usecase.ClarifyGoalUseCase
 import com.example.learnanything.core.data.usecase.GenerateOutlineUseCase
 import com.example.learnanything.core.model.Level
 import com.example.learnanything.core.model.Subject
 import com.example.learnanything.core.model.SubjectOutline
 import com.example.learnanything.core.model.ai.CallType
+import com.example.learnanything.core.model.clarify.Clarification
 import com.example.learnanything.core.model.outline.OutlineRequest
 import com.example.learnanything.core.model.outline.OutlineResponse
 import com.google.common.truth.Truth.assertThat
@@ -35,27 +37,29 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateSubjectViewModelTest {
-    private val validOutline = """
+    private val outlineJson = """
         {"title":"SQL joins","summary":"Combine tables with joins.","chapters":[
           {"title":"Basics","goal":"Write a two-table join.","topics":[
             {"title":"Inner join","objectives":["Write an INNER JOIN"],"prerequisites":[],"estimatedMinutes":15}
           ]}
         ]}
     """.trimIndent()
+    private val clarifyJson = """
+        {"questions":[
+          {"id":"why","question":"Why are you learning SQL?","kind":"choice","options":["Work","Study","Fun"]},
+          {"id":"db","question":"Which database do you use?","kind":"text","options":[]}
+        ]}
+    """.trimIndent()
 
-    private val saved = mutableListOf<Pair<OutlineRequest, OutlineResponse>>()
+    private data class Saved(val request: OutlineRequest, val outline: OutlineResponse, val clarifications: List<Clarification>, val draft: Boolean)
+    private val saved = mutableListOf<Saved>()
 
     private val repo = object : SubjectRepository {
         override fun observeSubjects(): Flow<List<Subject>> = emptyFlow()
         override fun observeOutline(subjectId: String): Flow<SubjectOutline?> = emptyFlow()
         override suspend fun outline(subjectId: String): SubjectOutline? = null
-        override suspend fun saveOutline(
-            request: OutlineRequest,
-            outline: OutlineResponse,
-            clarifications: List<com.example.learnanything.core.model.clarify.Clarification>,
-            draft: Boolean,
-        ): String {
-            saved += request to outline
+        override suspend fun saveOutline(request: OutlineRequest, outline: OutlineResponse, clarifications: List<Clarification>, draft: Boolean): String {
+            saved += Saved(request, outline, clarifications, draft)
             return "subject-1"
         }
         override suspend fun delete(subjectId: String) = Unit
@@ -75,70 +79,89 @@ class CreateSubjectViewModelTest {
         override suspend fun put(promptHash: String, callType: CallType, response: String) = Unit
     }
 
-    private class OneShotProvider(private val reply: () -> String, private val configured: Boolean = true) : AiProvider {
+    private class Fake(private val configured: Boolean = true, private val reply: (CallType) -> String) : AiProvider {
         override val id = "fake"
         override val displayName = "Fake"
         override val kind = ProviderKind.CLOUD
+        val requests = mutableListOf<AiRequest>()
         override suspend fun isConfigured() = configured
         override suspend fun listModels() = listOf(ModelInfo("m", "m"))
         override fun generate(request: AiRequest): Flow<AiChunk> = flow {
-            emit(AiChunk.Text(reply()))
+            requests += request
+            emit(AiChunk.Text(reply(request.callType)))
             emit(AiChunk.Done("m", "STOP"))
         }
     }
 
     private fun viewModel(provider: AiProvider): CreateSubjectViewModel {
-        val json = Json { ignoreUnknownKeys = true }
-        val caller = StructuredCaller(ProviderRouter(listOf(provider)), JsonSchemaValidator(), noCache, json)
-        return CreateSubjectViewModel(GenerateOutlineUseCase(caller, repo))
+        val caller = StructuredCaller(ProviderRouter(listOf(provider)), JsonSchemaValidator(), noCache, Json { ignoreUnknownKeys = true })
+        return CreateSubjectViewModel(ClarifyGoalUseCase(caller), GenerateOutlineUseCase(caller, repo))
     }
+
+    private val happy = Fake { if (it == CallType.CLARIFY) clarifyJson else outlineJson }
 
     @Before fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
 
-    @Test fun shortGoalCannotBeSubmitted() {
-        val vm = viewModel(OneShotProvider({ validOutline }))
+    @Test fun shortGoalCannotContinue() {
+        val vm = viewModel(happy)
         vm.onGoalChange("ab")
-        assertThat(vm.state.value.canSubmit).isFalse()
+        assertThat(vm.state.value.canContinue).isFalse()
     }
 
-    @Test fun successSavesOutlineAndExposesSubjectId() = runTest {
-        val vm = viewModel(OneShotProvider({ validOutline }))
+    @Test fun goalThenQuestionsThenDraftOutlineWithAnswers() = runTest {
+        val vm = viewModel(happy)
         vm.onGoalChange("SQL joins")
         vm.onLevelChange(Level.INTERMEDIATE)
-        vm.generate()
+        vm.askQuestions()
+        assertThat(vm.state.value.step).isEqualTo(CreateStep.CLARIFY)
+        assertThat(vm.state.value.questions.map { it.id }).containsExactly("why", "db").inOrder()
+
+        vm.onAnswer("why", "Work")
+        vm.onAnswer("db", "  ")  // blank answers are skipped
+        vm.buildCourse()
 
         assertThat(vm.state.value.createdSubjectId).isEqualTo("subject-1")
-        assertThat(saved.single().first.level).isEqualTo(Level.INTERMEDIATE)
-        assertThat(saved.single().second.title).isEqualTo("SQL joins")
+        val s = saved.single()
+        assertThat(s.draft).isTrue()
+        assertThat(s.request.level).isEqualTo(Level.INTERMEDIATE)
+        assertThat(s.clarifications).containsExactly(Clarification("Why are you learning SQL?", "Work"))
+        assertThat(happy.requests.last().prompt).contains("Work")
     }
 
-    @Test fun missingKeyPointsToSettings() = runTest {
-        val vm = viewModel(OneShotProvider({ validOutline }, configured = false))
+    @Test fun clarifyRateLimitOffersBuildingWithoutQuestions() = runTest {
+        val provider = Fake { if (it == CallType.CLARIFY) throw AiException.RateLimited("fake", 42, "quota") else outlineJson }
+        val vm = viewModel(provider)
         vm.onGoalChange("SQL joins")
-        vm.generate()
+        vm.askQuestions()
 
-        val error = vm.state.value.error!!
-        assertThat(error.needsSettings).isTrue()
+        assertThat(vm.state.value.step).isEqualTo(CreateStep.GOAL)
+        assertThat(vm.state.value.error!!.text).contains("42 seconds")
+        assertThat(vm.state.value.canSkipQuestions).isTrue()
+
+        vm.skipQuestions()
+        assertThat(vm.state.value.createdSubjectId).isEqualTo("subject-1")
+        assertThat(saved.single().clarifications).isEmpty()
+    }
+
+    @Test fun missingKeyPointsToSettingsAndCannotSkip() = runTest {
+        val vm = viewModel(Fake(configured = false) { outlineJson })
+        vm.onGoalChange("SQL joins")
+        vm.askQuestions()
+
+        assertThat(vm.state.value.error!!.needsSettings).isTrue()
+        assertThat(vm.state.value.canSkipQuestions).isFalse()
         assertThat(saved).isEmpty()
     }
 
-    @Test fun rateLimitShowsRetryTimeAndSavesNothing() = runTest {
-        val vm = viewModel(OneShotProvider({ throw AiException.RateLimited("fake", 42, "quota") }))
+    @Test fun invalidOutlineTwiceReturnsToQuestionsAndSavesNothing() = runTest {
+        val vm = viewModel(Fake { if (it == CallType.CLARIFY) clarifyJson else """{"title":"x"}""" })
         vm.onGoalChange("SQL joins")
-        vm.generate()
+        vm.askQuestions()
+        vm.buildCourse()
 
-        assertThat(vm.state.value.error!!.message).contains("42 seconds")
-        assertThat(vm.state.value.generating).isFalse()
-        assertThat(saved).isEmpty()
-    }
-
-    @Test fun invalidOutputTwiceIsAnErrorAndSavesNothing() = runTest {
-        val vm = viewModel(OneShotProvider({ """{"title":"x"}""" }))
-        vm.onGoalChange("SQL joins")
-        vm.generate()
-
-        assertThat(vm.state.value.error!!.message).contains("didn't pass our checks")
+        assertThat(vm.state.value.step).isEqualTo(CreateStep.CLARIFY)
+        assertThat(vm.state.value.error!!.text).contains("didn't pass our checks")
         assertThat(saved).isEmpty()
     }
 }
