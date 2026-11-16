@@ -110,12 +110,13 @@ class GeminiProvider(
         var finishReason: String? = null
         var switchedField = false
         var sendThoughts = true
+        var sendSchema = true
         while (true) {
             val field = schemaField
             val httpRequest = Request.Builder()
                 .url(url)
                 .header(KEY_HEADER, key)
-                .post(buildBody(request, field, sendThoughts).toString().toRequestBody(JSON_MEDIA))
+                .post(buildBody(request, field, sendThoughts, sendSchema).toString().toRequestBody(JSON_MEDIA))
                 .build()
             val call = http.newCall(httpRequest)
             val response = try {
@@ -126,6 +127,10 @@ class GeminiProvider(
             try {
                 if (!response.isSuccessful) {
                     val body = response.body.string()
+                    if (sendSchema && response.code == 400 && GeminiSchema.isTooComplex(body)) {
+                        sendSchema = false // ask for plain JSON; we still validate it locally
+                        continue
+                    }
                     if (sendThoughts && response.code == 400 && body.contains("thinking", ignoreCase = true)) {
                         sendThoughts = false // this model has no thinking settings
                         continue
@@ -170,7 +175,7 @@ class GeminiProvider(
         ModelRanker.pick(listModels(), request.callType.tier)?.id
             ?: throw AiException.Server(id, 404, "No text model is available for this key")
 
-    internal fun buildBody(request: AiRequest, field: SchemaField, thoughts: Boolean = true): JsonObject = buildJsonObject {
+    internal fun buildBody(request: AiRequest, field: SchemaField, thoughts: Boolean = true, withSchema: Boolean = true): JsonObject = buildJsonObject {
         putJsonObject("systemInstruction") {
             putJsonArray("parts") { addJsonObject { put("text", request.system) } }
         }
@@ -185,8 +190,10 @@ class GeminiProvider(
             // Stream thought summaries so the connection isn't silent while the model thinks.
             // They are filtered out below and never shown or parsed.
             if (thoughts) putJsonObject("thinkingConfig") { put("includeThoughts", true) }
-            val schema = request.schemaJson?.let { json.parseToJsonElement(it) }
-            if (schema != null) {
+            val schema = request.schemaJson?.let { GeminiSchema.simplify(json.parseToJsonElement(it)) }
+            if (schema != null && !withSchema) {
+                put("responseMimeType", "application/json")
+            } else if (schema != null) {
                 when (field) {
                     SchemaField.RESPONSE_FORMAT -> putJsonObject("responseFormat") {
                         putJsonObject("text") {
