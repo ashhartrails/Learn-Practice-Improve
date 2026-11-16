@@ -21,6 +21,8 @@ data class SubjectEntity(
     val weeklyHours: Int,
     val summary: String,
     val status: String,
+    /** JSON list of Clarification (question + learner's answer). */
+    val clarificationsJson: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,
@@ -74,6 +76,7 @@ data class TopicEntity(
     val estimatedMinutes: Int,
     /** Generated lazily when the topic is first opened (M1). */
     val lessonJson: String? = null,
+    val completedAt: Long? = null,
     val updatedAt: Long,
     val deletedAt: Long? = null,
 )
@@ -86,4 +89,63 @@ data class AiCacheEntity(
     val response: String,
     val createdAt: Long,
     val updatedAt: Long,
+)
+
+/**
+ * A question. Owned by a topic (try-it and check questions) or a chapter (quiz).
+ * [topicId] is the topic it tests, which is the owner for topic items.
+ */
+@Entity(tableName = "item", indices = [Index("ownerId"), Index("topicId")])
+data class ItemEntity(
+    @PrimaryKey val id: String,
+    val ownerType: String,
+    val ownerId: String,
+    val role: String,
+    val topicId: String,
+    val position: Int,
+    val kind: String,
+    /** QuestionDto JSON, exactly as validated. */
+    val payloadJson: String,
+    /** Quiz retake number; 0 for topic items. */
+    val variant: Int = 0,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+@Entity(tableName = "attempt", indices = [Index("itemId")])
+data class AttemptEntity(
+    @PrimaryKey val id: String,
+    val itemId: String,
+    /** Answer JSON. */
+    val answerJson: String,
+    val correct: Boolean,
+    val score: Double,
+    /** EXACT (checked by code) or AI_GRADED (M2+). */
+    val trust: String,
+    val hintsUsed: Int,
+    /** LESSON, QUIZ or REVIEW. */
+    val context: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+/** Learning state of one concept. M1 has one concept per topic. */
+@Entity(tableName = "concept", indices = [Index("topicId", unique = true)])
+data class ConceptEntity(
+    @PrimaryKey val id: String,
+    val topicId: String,
+    val name: String,
+    val mastery: Double,
+    val step: Int,
+    val nextReviewAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+/** Projection used by progress screens. */
+data class TopicProgressRow(
+    val topicId: String,
+    val subjectId: String,
+    val completedAt: Long?,
 )

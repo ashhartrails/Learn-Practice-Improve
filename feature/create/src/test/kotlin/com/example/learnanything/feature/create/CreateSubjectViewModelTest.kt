@@ -48,11 +48,26 @@ class CreateSubjectViewModelTest {
     private val repo = object : SubjectRepository {
         override fun observeSubjects(): Flow<List<Subject>> = emptyFlow()
         override fun observeOutline(subjectId: String): Flow<SubjectOutline?> = emptyFlow()
-        override suspend fun saveOutline(request: OutlineRequest, outline: OutlineResponse): String {
+        override suspend fun outline(subjectId: String): SubjectOutline? = null
+        override suspend fun saveOutline(
+            request: OutlineRequest,
+            outline: OutlineResponse,
+            clarifications: List<com.example.learnanything.core.model.clarify.Clarification>,
+            draft: Boolean,
+        ): String {
             saved += request to outline
             return "subject-1"
         }
         override suspend fun delete(subjectId: String) = Unit
+        override suspend fun activate(subjectId: String) = Unit
+        override suspend fun renameChapter(chapterId: String, title: String) = Unit
+        override suspend fun renameTopic(topicId: String, title: String) = Unit
+        override suspend fun moveChapter(chapterId: String, up: Boolean) = Unit
+        override suspend fun moveTopic(topicId: String, up: Boolean) = Unit
+        override suspend fun deleteChapter(chapterId: String) = Unit
+        override suspend fun deleteTopic(topicId: String) = Unit
+        override suspend fun addTopic(chapterId: String, title: String) = Unit
+        override suspend fun touch(subjectId: String) = Unit
     }
 
     private val noCache = object : AiCacheStore {

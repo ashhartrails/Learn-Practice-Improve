@@ -40,3 +40,33 @@ class MasteryTest {
         assertThat(mixed.step).isEqualTo(0)
     }
 }
+
+class NextStepTest {
+    private fun topic(id: String, done: Boolean) = Topic(id, 0, "T$id", emptyList(), emptyList(), 10, if (done) 1L else null)
+    private fun outline(vararg chapters: Chapter) = SubjectOutline(
+        Subject("s", "S", "g", Level.BEGINNER, 3, "", SubjectStatus.ACTIVE, 0), chapters.toList(),
+    )
+
+    @Test fun firstOpenTopicComesFirst() {
+        val step = NextStep.of(outline(Chapter("c1", 0, "One", "g", listOf(topic("a", true), topic("b", false)))))
+        assertThat(step).isEqualTo(NextStep.OpenTopic("b", "Tb", "One"))
+    }
+
+    @Test fun quizFollowsTheLastTopic() {
+        val step = NextStep.of(outline(Chapter("c1", 0, "One", "g", listOf(topic("a", true)))))
+        assertThat(step).isEqualTo(NextStep.TakeQuiz("c1", "One"))
+    }
+
+    @Test fun failedQuizStillBlocksTheNextChapter() {
+        val c1 = Chapter("c1", 0, "One", "g", listOf(topic("a", true)), ChapterGate(0.5, false, 1, 1))
+        val c2 = Chapter("c2", 1, "Two", "g", listOf(topic("b", false)))
+        assertThat(NextStep.of(outline(c1, c2))).isEqualTo(NextStep.TakeQuiz("c1", "One"))
+    }
+
+    @Test fun passedChaptersAreSkippedAndAllDoneIsComplete() {
+        val c1 = Chapter("c1", 0, "One", "g", listOf(topic("a", true)), ChapterGate(0.9, true, 1, 1))
+        val c2 = Chapter("c2", 1, "Two", "g", listOf(topic("b", false)))
+        assertThat(NextStep.of(outline(c1, c2))).isEqualTo(NextStep.OpenTopic("b", "Tb", "Two"))
+        assertThat(NextStep.of(outline(c1))).isEqualTo(NextStep.CourseComplete)
+    }
+}
