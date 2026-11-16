@@ -64,7 +64,7 @@ sealed class AiException(message: String, cause: Throwable? = null) : Exception(
         AiException("$providerId blocked the request ($reason)")
 
     class Network(override val providerId: String, cause: Throwable) :
-        AiException("Could not reach $providerId: ${cause.message}", cause)
+        AiException("Could not reach $providerId (${cause::class.simpleName}: ${cause.message})", cause)
 
     class Server(override val providerId: String, val httpCode: Int, detail: String) :
         AiException("$providerId error $httpCode: $detail")

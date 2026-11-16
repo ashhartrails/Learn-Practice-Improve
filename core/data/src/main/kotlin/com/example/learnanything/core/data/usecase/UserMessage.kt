@@ -13,7 +13,13 @@ object FailureMessages {
             "You've hit Gemini's free-tier limit." +
                 (retryAfterSeconds?.let { " Try again in about $it seconds." } ?: " Try again in a minute."),
         )
-        FailureKind.NETWORK -> UserMessage("No connection. Check your internet and try again.")
+        FailureKind.NETWORK -> UserMessage(
+            if (detail.contains("Timeout", ignoreCase = true)) {
+                "Gemini took too long to answer. Try again."
+            } else {
+                "No connection. Check your internet and try again."
+            } + "\nDetail: $detail",
+        )
         FailureKind.BLOCKED -> UserMessage("Gemini declined this request. Try rewording it.")
         FailureKind.INVALID_OUTPUT -> UserMessage("The AI's answer didn't pass our checks twice. Try again.")
         FailureKind.PROVIDER_ERROR -> UserMessage(detail, needsSettings = detail.contains("404"))
