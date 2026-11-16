@@ -97,6 +97,16 @@ Menu names vary a little by brand. These are for Pixel and stock Android; on Sam
 5. When every topic in a chapter is done, tap **Take the chapter quiz**. You need 80% to pass. Every answer is checked by code and labelled **Exact**.
 6. **You** shows your streak, mastery and reviews due. The gear icon opens Settings.
 
+
+### Trying the M2 practicals
+1. Pass a chapter quiz. The subject map now shows a **Practical** row, and the floating button says **Do the practical**.
+2. The AI writes a task suited to the course: Python, JavaScript, SQL, a calculation, or a written answer. Code tasks are tested before you see them, because the AI's own solution must pass its hidden tests.
+3. Type your answer and tap **Run tests** (or **Run query**, **Check answer**, **Submit for grading**). The first Python run starts Python on your phone, which can take a few seconds.
+4. To get a different kind of task, tap **⋮ → Change type**. To get a fresh task of the same kind, tap **⋮ → New task**.
+5. **Gate check:** on a code task, run a wrong answer first and confirm it fails, then a right answer and confirm it passes and the chapter shows **Finished**.
+
+Chapters you finished before this update stay finished; their practical shows as optional.
+
 ### Wireless option (Android 11+, same Wi-Fi network)
 **Developer options → Wireless debugging → On**. Then in Android Studio, open the device menu,
 choose **Pair Devices Using Wi-Fi**, and scan the QR code from the phone's **Wireless debugging → Pair device with QR code**.
@@ -128,4 +138,7 @@ The debug APK ends up in `app/build/outputs/apk/debug/app-debug.apk`.
 | "You've hit Gemini's free-tier limit" | Wait the number of seconds shown, or pick another model under **You → Model → Change**. |
 | "The AI's course didn't pass our checks twice" | The model sent malformed output twice in a row. Tap **Build my course** again, or try another model. |
 | Error mentioning 404 or "model" | The chosen model was retired. Go to **You → Model → Change → Automatic**. |
+| "Gemini is busy right now" | Google's servers are overloaded. The app already retried twice. Wait a minute, or pick a **flash-lite** model. |
+| "Gemini took too long to answer" | Try again, or pick a faster **flash** or **flash-lite** model. |
+| "The code runner stopped responding" | Tap the button again; the runner restarts itself. |
 | Phone not listed in Studio | Re-plug the cable, check that the USB debugging popup was accepted, try another cable or port. |
