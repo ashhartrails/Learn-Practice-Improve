@@ -143,7 +143,9 @@ class StructuredCaller @Inject constructor(
         }
         val ruleErrors = rules(value)
         if (ruleErrors.isNotEmpty()) return Check.Invalid(ruleErrors)
-        return Check.Ok(value, json.encodeToString(serializer, value))
+        // Cache the exact JSON that passed validation. Re-encoding could drop empty fields
+        // and then fail the schema on the next read.
+        return Check.Ok(value, element.toString())
     }
 
     private fun AiException.toFailure(): StructuredResult.Failure = when (this) {

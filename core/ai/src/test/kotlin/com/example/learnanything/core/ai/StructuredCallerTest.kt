@@ -108,4 +108,13 @@ class StructuredCallerTest {
         val result = caller(ScriptedProvider("p1", configured = false)).outline() as StructuredResult.Failure
         assertThat(result.kind).isEqualTo(FailureKind.NO_PROVIDER)
     }
+
+    @Test fun cachedResponseStillPassesSchemaWhenItHasEmptyArrays() = runTest {
+        // The cache must hold the exact validated JSON (empty arrays included). Re-encoding
+        // would drop defaulted fields such as QuestionDto.options and fail the schema on read.
+        caller(ScriptedProvider("p1", Samples.VALID_OUTLINE)).outline()
+        assertThat(cache.entries.values.single()).contains("\"prerequisites\":[]")
+        val result = caller(ScriptedProvider("p2")).outline() as StructuredResult.Success
+        assertThat(result.fromCache).isTrue()
+    }
 }

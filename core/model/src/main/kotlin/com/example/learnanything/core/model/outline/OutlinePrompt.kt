@@ -3,10 +3,11 @@ package com.example.learnanything.core.model.outline
 import com.example.learnanything.core.model.ai.AiSchema
 import com.example.learnanything.core.model.ai.CallType
 import com.example.learnanything.core.model.ai.PromptSpec
+import com.example.learnanything.core.model.clarify.Clarification
 
 /** Versioned prompt for the `outline` call. Bump [VERSION] whenever the text changes. */
 object OutlinePrompt {
-    const val VERSION = 1
+    const val VERSION = 2
 
     private val SYSTEM = """
         You are an expert curriculum designer building a self-paced course for one learner.
@@ -22,7 +23,7 @@ object OutlinePrompt {
         - Reply with JSON only, matching the provided schema. No markdown, no commentary.
     """.trimIndent()
 
-    fun build(request: OutlineRequest): PromptSpec = PromptSpec(
+    fun build(request: OutlineRequest, clarifications: List<Clarification> = emptyList()): PromptSpec = PromptSpec(
         callType = CallType.OUTLINE,
         version = VERSION,
         system = SYSTEM,
@@ -30,8 +31,8 @@ object OutlinePrompt {
             Learner goal: ${request.goal.trim()}
             Current level: ${request.level.label}
             Time available: ${request.weeklyHours} hours per week
-            Build the course outline.
-        """.trimIndent(),
+        """.trimIndent() + clarifications.joinToString("") { "\nLearner said — ${it.question}: ${it.answer}" } +
+            "\nBuild the course outline.",
         schema = AiSchema.OUTLINE_V1,
     )
 }
