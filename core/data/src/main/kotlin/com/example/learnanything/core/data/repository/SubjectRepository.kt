@@ -8,6 +8,7 @@ import com.example.learnanything.core.data.db.SubjectEntity
 import com.example.learnanything.core.data.db.TopicEntity
 import com.example.learnanything.core.model.Chapter
 import com.example.learnanything.core.model.ChapterGate
+import com.example.learnanything.core.model.PracticalResult
 import com.example.learnanything.core.model.Level
 import com.example.learnanything.core.model.ModelJson
 import com.example.learnanything.core.model.Subject
@@ -92,6 +93,7 @@ class RoomSubjectRepository @Inject constructor(
                     goal = chapter.goal,
                     topics = byChapter[chapter.id].orEmpty().sortedBy { it.position }.map { it.toDomain() },
                     gate = chapter.gateResult?.let { runCatching { ModelJson.decodeFromString(ChapterGate.serializer(), it) }.getOrNull() },
+                    practical = chapter.practicalResult?.let { runCatching { ModelJson.decodeFromString(PracticalResult.serializer(), it) }.getOrNull() },
                 )
             },
         )

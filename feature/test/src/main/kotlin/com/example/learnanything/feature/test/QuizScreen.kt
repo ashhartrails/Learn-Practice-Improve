@@ -124,7 +124,7 @@ private fun Done(s: QuizUiState.Done, padding: PaddingValues, onBack: () -> Unit
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$percent%", style = MaterialTheme.typography.displayMedium)
                     Text(
-                        if (s.outcome.passed) "Passed. Chapter complete!" else "Not yet. You need ${(QuizRules.PASS_MARK * 100).roundToInt()}% to pass.",
+                        if (s.outcome.passed) "Passed! Next: the chapter practical." else "Not yet. You need ${(QuizRules.PASS_MARK * 100).roundToInt()}% to pass.",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     TrustLabel()

@@ -106,11 +106,15 @@ class LearningFlowTest {
         val outcome = SubmitQuizUseCase(grade, learning, subjects, clock)(quiz.place, quiz.items, answers)
         assertThat(outcome.score).isWithin(1e-9).of(0.875)
         assertThat(outcome.passed).isTrue()
-        assertThat(subjects.outline(subjectId)!!.chapters[0].isFinished).isTrue()
+        // M2: the practical is still to do.
+        val afterQuiz = subjects.outline(subjectId)!!
+        assertThat(afterQuiz.chapters[0].isFinished).isFalse()
+        assertThat(com.example.learnanything.core.model.NextStep.of(afterQuiz))
+            .isInstanceOf(com.example.learnanything.core.model.NextStep.DoPractical::class.java)
 
         val progress = learning.observeProgress().first()
         assertThat(progress.topicsCompleted).isEqualTo(2)
-        assertThat(progress.chaptersPassed).isEqualTo(1)
+        assertThat(progress.chaptersPassed).isEqualTo(0)
         assertThat(progress.reviewsDue).isEqualTo(0)
         assertThat(progress.averageMastery!!).isGreaterThan(0.5)
 

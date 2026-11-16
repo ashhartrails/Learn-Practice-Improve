@@ -34,6 +34,7 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(project(":feature:topic"))
     implementation(project(":feature:test"))
+    implementation(project(":feature:practical"))
     implementation(project(":feature:progress"))
 
     implementation(libs.androidx.core.ktx)

@@ -11,7 +11,9 @@ import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -29,6 +31,8 @@ import com.example.learnanything.core.model.outline.OutlineChapter
 import com.example.learnanything.core.model.outline.OutlineRequest
 import com.example.learnanything.core.model.outline.OutlineResponse
 import com.example.learnanything.core.model.outline.OutlineTopic
+import com.example.learnanything.core.model.practical.PracticalKind
+import com.example.learnanything.core.model.practical.PracticalResponse
 import com.example.learnanything.core.model.question.QuestionDto
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -43,7 +47,7 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * Launches the real app (Hilt graph, Room, DataStore, navigation) on Robolectric.
  * Lessons and the quiz are seeded into the real database first, so no AI call is made,
- * then the test walks the M1 loop through the UI. Screenshots go to app/build/smoke-screens/.
+ * then the test walks the loop (lesson, quiz, practical) through the UI. Screenshots go to app/build/smoke-screens/.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -102,7 +106,7 @@ class AppSmokeTest {
         shot("03-you")
     }
 
-    @Test fun walksAChapterFromDraftToPassedQuiz() {
+    @Test fun walksAChapterFromDraftToPassedQuizAndPractical() {
         seedCourse()
         launch()
 
@@ -152,16 +156,32 @@ class AppSmokeTest {
             if (i == 0) shot("10-quiz-question")
             click(if (i == 5) "Submit" else "Next", substring = true)
         }
-        waitForText("Passed. Chapter complete!")
+        waitForText("Passed! Next: the chapter practical.")
         shot("11-quiz-result")
         click("Back to course")
         waitForText("Chapter quiz: passed", substring = true)
+
+        // Practical (seeded numeric task, checked by code): wrong fails, right passes.
+        click("Do the practical")
+        waitForText("Count the joined rows")
+        shot("12-practical")
+        compose.onNodeWithTag("practical-answer").performTextReplacement("5")
+        click("Check answer")
+        waitForText("Not yet")
+        shot("13-practical-wrong")
+        compose.onNodeWithTag("practical-answer").performTextReplacement("4")
+        click("Check answer")
+        waitForText("Passed. Chapter complete!")
+        shot("14-practical-passed")
+        click("Back to course")
+        waitForText("Practical: passed")
+        waitForText("Finished")
 
         // You tab shows the progress.
         scenario!!.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         click("You")
         waitForText("1/1")
-        shot("12-progress")
+        shot("15-progress")
     }
 
     /** Writes a draft course with a stored lesson and quiz through a second Room connection. */
@@ -200,6 +220,16 @@ class AppSmokeTest {
             topicId to if (i == 5) inner else leftJoin.copy(prompt = "(${i + 1}) ${leftJoin.prompt}")
         }
         learning.saveQuiz(outline.chapters[0].id, quiz, variant = 1)
+        learning.savePractical(
+            outline.chapters[0].id, topicId,
+            PracticalResponse(
+                kind = PracticalKind.NUMERIC,
+                title = "Count the joined rows",
+                task = "`orders` has 5 rows; 4 of them have a matching customer. How many rows does an **INNER JOIN** return?",
+                number = 4.0, tolerance = 0.0,
+            ),
+            variant = 1,
+        )
         db.close()
     }
 }

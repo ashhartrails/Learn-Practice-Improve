@@ -67,4 +67,24 @@ class CallSchemasValidationTest {
         val quiz = (0 until 6).joinToString(",", "{\"questions\":[", "]}") { """{"topicIndex":-1,"question":$q}""" }
         assertThat(errors(AiSchema.QUIZ_V1, quiz)).isNotEmpty()
     }
+
+    private val practical = """{"kind":"sql","title":"Totals","task":"Sum each customer's orders, highest first.",
+        "starterCode":"SELECT * FROM orders","tests":[],"referenceSolution":"SELECT customer, SUM(total) FROM orders GROUP BY customer",
+        "sqlSetup":"CREATE TABLE orders(customer TEXT, total REAL); INSERT INTO orders VALUES ('a', 1);","ordered":true,
+        "number":null,"tolerance":null,"unit":null,"rubric":[],"modelAnswer":""}"""
+
+    @Test fun practicalSchemaAcceptsAValidTask() {
+        assertThat(errors(AiSchema.PRACTICAL_V1, practical)).isEmpty()
+    }
+
+    @Test fun practicalSchemaRejectsUnknownKindAndExtraFields() {
+        assertThat(errors(AiSchema.PRACTICAL_V1, practical.replace("\"sql\"", "\"cobol\""))).isNotEmpty()
+        assertThat(errors(AiSchema.PRACTICAL_V1, practical.replace("\"ordered\":true", "\"ordered\":true,\"url\":\"x\""))).isNotEmpty()
+    }
+
+    @Test fun gradeSchemaRequiresEvidenceAndFeedback() {
+        val ok = """{"criteria":[{"index":0,"met":true,"evidence":"a quote","feedback":"Good point."}],"summary":"Nice work overall."}"""
+        assertThat(errors(AiSchema.GRADE_V1, ok)).isEmpty()
+        assertThat(errors(AiSchema.GRADE_V1, ok.replace(",\"evidence\":\"a quote\"", ""))).isNotEmpty()
+    }
 }

@@ -48,6 +48,8 @@ data class ChapterEntity(
     val goal: String,
     /** JSON of the chapter gate result once the quiz and practical are done (M1+). */
     val gateResult: String? = null,
+    /** JSON of the best practical result (M2+). */
+    val practicalResult: String? = null,
     val updatedAt: Long,
     val deletedAt: Long? = null,
 )
@@ -122,6 +124,8 @@ data class AttemptEntity(
     val score: Double,
     /** EXACT (checked by code) or AI_GRADED (M2+). */
     val trust: String,
+    /** Test results or rubric feedback as JSON (practicals, M2+). */
+    val feedbackJson: String? = null,
     val hintsUsed: Int,
     /** LESSON, QUIZ or REVIEW. */
     val context: String,

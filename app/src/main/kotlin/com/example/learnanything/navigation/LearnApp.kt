@@ -33,6 +33,7 @@ import com.example.learnanything.feature.home.LibraryScreen
 import com.example.learnanything.feature.progress.ProgressScreen
 import com.example.learnanything.feature.settings.SettingsScreen
 import com.example.learnanything.feature.subject.SubjectScreen
+import com.example.learnanything.feature.practical.PracticalScreen
 import com.example.learnanything.feature.test.QuizScreen
 import com.example.learnanything.feature.test.ReviewScreen
 import com.example.learnanything.feature.topic.TopicScreen
@@ -46,6 +47,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class OutlineEditorKey(val subjectId: String) : NavKey
 @Serializable data class TopicKey(val topicId: String) : NavKey
 @Serializable data class QuizKey(val chapterId: String) : NavKey
+@Serializable data class PracticalKey(val chapterId: String) : NavKey
 @Serializable data object ReviewKey : NavKey
 @Serializable data object SettingsKey : NavKey
 
@@ -98,6 +100,7 @@ fun LearnApp() {
                             onOpenSubject = openSubject,
                             onOpenTopic = { backStack.add(TopicKey(it)) },
                             onOpenQuiz = { backStack.add(QuizKey(it)) },
+                            onOpenPractical = { backStack.add(PracticalKey(it)) },
                             onOpenReview = { backStack.add(ReviewKey) },
                         )
                     }
@@ -129,6 +132,7 @@ fun LearnApp() {
                             subjectId = key.subjectId,
                             onOpenTopic = { backStack.add(TopicKey(it)) },
                             onOpenQuiz = { backStack.add(QuizKey(it)) },
+                            onOpenPractical = { backStack.add(PracticalKey(it)) },
                             onEditOutline = { backStack.add(OutlineEditorKey(it)) },
                             onBack = { backStack.removeLastOrNull() },
                         )
@@ -143,6 +147,13 @@ fun LearnApp() {
                     }
                     entry<QuizKey> { key ->
                         QuizScreen(
+                            chapterId = key.chapterId,
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<PracticalKey> { key ->
+                        PracticalScreen(
                             chapterId = key.chapterId,
                             onOpenSettings = { backStack.add(SettingsKey) },
                             onBack = { backStack.removeLastOrNull() },

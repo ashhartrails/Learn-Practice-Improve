@@ -50,6 +50,7 @@ fun HomeScreen(
     onOpenSubject: (Subject) -> Unit,
     onOpenTopic: (String) -> Unit,
     onOpenQuiz: (String) -> Unit,
+    onOpenPractical: (String) -> Unit,
     onOpenReview: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -87,7 +88,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ready.continueCard?.let { card ->
-                    item { ContinueCardView(card, onOpenTopic, onOpenQuiz) }
+                    item { ContinueCardView(card, onOpenTopic, onOpenQuiz, onOpenPractical) }
                 }
                 if (ready.reviewsDue > 0) {
                     item {
@@ -114,7 +115,12 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ContinueCardView(card: ContinueCard, onOpenTopic: (String) -> Unit, onOpenQuiz: (String) -> Unit) {
+private fun ContinueCardView(
+    card: ContinueCard,
+    onOpenTopic: (String) -> Unit,
+    onOpenQuiz: (String) -> Unit,
+    onOpenPractical: (String) -> Unit,
+) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -125,6 +131,7 @@ private fun ContinueCardView(card: ContinueCard, onOpenTopic: (String) -> Unit, 
             val (line, action) = when (val next = card.next) {
                 is NextStep.OpenTopic -> "Next: ${next.title}" to { onOpenTopic(next.topicId) }
                 is NextStep.TakeQuiz -> "Next: ${next.chapterTitle} quiz" to { onOpenQuiz(next.chapterId) }
+                is NextStep.DoPractical -> "Next: ${next.chapterTitle} practical" to { onOpenPractical(next.chapterId) }
                 NextStep.CourseComplete -> "" to {}
             }
             Text(line, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)

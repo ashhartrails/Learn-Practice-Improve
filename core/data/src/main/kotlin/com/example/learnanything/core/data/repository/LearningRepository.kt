@@ -4,9 +4,12 @@ import androidx.room3.withWriteTransaction
 import com.example.learnanything.core.data.TimeSource
 import com.example.learnanything.core.data.db.AppDatabase
 import com.example.learnanything.core.data.db.AttemptEntity
+import com.example.learnanything.core.data.db.ChapterEntity
 import com.example.learnanything.core.data.db.ConceptEntity
 import com.example.learnanything.core.data.db.ItemEntity
 import com.example.learnanything.core.model.ChapterGate
+import com.example.learnanything.core.model.PracticalResult
+import com.example.learnanything.core.model.practical.PracticalResponse
 import com.example.learnanything.core.model.ModelJson
 import com.example.learnanything.core.model.learning.ConceptState
 import com.example.learnanything.core.model.learning.MasteryScheduler
@@ -24,13 +27,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-enum class ItemRole { TRY_IT, CHECK, QUIZ }
-enum class AttemptContext { LESSON, QUIZ, REVIEW }
+enum class ItemRole { TRY_IT, CHECK, QUIZ, PRACTICAL }
+enum class AttemptContext { LESSON, QUIZ, REVIEW, PRACTICAL }
 
 /** A stored, validated question ready to show. */
 data class StoredItem(val id: String, val role: ItemRole, val topicId: String, val question: Question)
 
 data class StoredLesson(val lesson: LessonResponse, val tryIt: StoredItem, val checks: List<StoredItem>)
+
+data class StoredPractical(val itemId: String, val variant: Int, val practical: PracticalResponse)
 
 data class ReviewItem(val topicId: String, val topicTitle: String, val item: StoredItem)
 
@@ -143,7 +148,77 @@ class LearningRepository @Inject constructor(
         val chapter = courseDao.chapter(chapterId) ?: return
         val previous = chapter.gateResult?.let { runCatching { ModelJson.decodeFromString(ChapterGate.serializer(), it) }.getOrNull() }
         val best = if (previous != null && previous.score > gate.score) previous else gate
-        courseDao.setGate(chapterId, ModelJson.encodeToString(ChapterGate.serializer(), best), time.now())
+        // A chapter passed before practicals existed stays finished without one.
+        val legacyPass = previous != null && previous.passed && !previous.requiresPractical
+        val stored = if (legacyPass) best.copy(requiresPractical = false) else best
+        courseDao.setGate(chapterId, ModelJson.encodeToString(ChapterGate.serializer(), stored), time.now())
+    }
+
+    /** The chapter's current practical, if one was generated. */
+    suspend fun practical(chapterId: String): StoredPractical? {
+        val item = dao.items(chapterId, ItemRole.PRACTICAL.name).maxByOrNull { it.variant } ?: return null
+        val practical = runCatching { ModelJson.decodeFromString(PracticalResponse.serializer(), item.payloadJson) }.getOrNull()
+            ?: return null
+        return StoredPractical(item.id, item.variant, practical)
+    }
+
+    suspend fun practicalVariant(chapterId: String): Int =
+        dao.items(chapterId, ItemRole.PRACTICAL.name).maxOfOrNull { it.variant } ?: 0
+
+    /** Saves a validated (and, for code, verified) practical, replacing the previous one. */
+    suspend fun savePractical(chapterId: String, topicId: String, practical: PracticalResponse, variant: Int): StoredPractical {
+        val now = time.now()
+        val entity = ItemEntity(
+            id = UUID.randomUUID().toString(),
+            ownerType = "CHAPTER",
+            ownerId = chapterId,
+            role = ItemRole.PRACTICAL.name,
+            topicId = topicId,
+            position = 0,
+            kind = practical.kind.wire,
+            payloadJson = ModelJson.encodeToString(PracticalResponse.serializer(), practical),
+            variant = variant,
+            updatedAt = now,
+        )
+        db.withWriteTransaction {
+            dao.tombstoneItems(chapterId, ItemRole.PRACTICAL.name, now)
+            dao.upsertItems(listOf(entity))
+        }
+        return StoredPractical(entity.id, variant, practical)
+    }
+
+    /** The learner's last submitted answer for a practical, so the workspace can restore it. */
+    suspend fun lastPracticalAnswer(itemId: String): String? =
+        dao.attemptsFor(listOf(itemId)).lastOrNull()?.answerJson
+            ?.let { runCatching { (ModelJson.decodeFromString(Answer.serializer(), it) as? Answer.Text)?.text }.getOrNull() }
+
+    suspend fun recordPracticalAttempt(itemId: String, answer: String, score: Double, passed: Boolean, trust: String, feedbackJson: String) {
+        val now = time.now()
+        dao.upsertAttempt(
+            AttemptEntity(
+                id = UUID.randomUUID().toString(),
+                itemId = itemId,
+                answerJson = ModelJson.encodeToString(Answer.serializer(), Answer.Text(answer)),
+                correct = passed,
+                score = score,
+                trust = trust,
+                feedbackJson = feedbackJson,
+                hintsUsed = 0,
+                context = AttemptContext.PRACTICAL.name,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+    }
+
+    /** Keeps the best result: a pass is never replaced by a later fail. */
+    suspend fun recordPracticalResult(chapterId: String, result: PracticalResult) {
+        val chapter = courseDao.chapter(chapterId) ?: return
+        val previous = chapter.practicalResult
+            ?.let { runCatching { ModelJson.decodeFromString(PracticalResult.serializer(), it) }.getOrNull() }
+        val keepPrevious = previous != null && (previous.passed && !result.passed || previous.passed == result.passed && previous.score > result.score)
+        val best = if (keepPrevious) previous!! else result
+        courseDao.setPracticalResult(chapterId, ModelJson.encodeToString(PracticalResult.serializer(), best), time.now())
     }
 
     /** One check question per topic whose review is due, for topics that still exist. */
@@ -184,9 +259,7 @@ class LearningRepository @Inject constructor(
         ProgressSummary(
             topicsCompleted = topics.count { it.completedAt != null },
             topicsTotal = topics.size,
-            chaptersPassed = liveChapters.count { c ->
-                c.gateResult?.let { runCatching { ModelJson.decodeFromString(ChapterGate.serializer(), it).passed }.getOrNull() } == true
-            },
+            chaptersPassed = liveChapters.count { c -> c.gateFinished() },
             chaptersTotal = liveChapters.size,
             averageMastery = liveConcepts.takeIf { it.isNotEmpty() }?.map { it.mastery }?.average(),
             reviewsDue = liveConcepts.count { it.nextReviewAt <= now },
@@ -212,6 +285,14 @@ class LearningRepository @Inject constructor(
         variant = variant,
         updatedAt = now,
     )
+
+    /** Quiz passed, and the practical passed unless the chapter was finished before practicals existed. */
+    private fun ChapterEntity.gateFinished(): Boolean {
+        val gate = gateResult?.let { runCatching { ModelJson.decodeFromString(ChapterGate.serializer(), it) }.getOrNull() } ?: return false
+        if (!gate.passed) return false
+        if (!gate.requiresPractical) return true
+        return practicalResult?.let { runCatching { ModelJson.decodeFromString(PracticalResult.serializer(), it).passed }.getOrNull() } == true
+    }
 
     private fun ItemEntity.toStored() = StoredItem(
         id = id,

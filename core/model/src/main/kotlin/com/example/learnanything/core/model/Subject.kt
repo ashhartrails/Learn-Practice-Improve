@@ -26,10 +26,15 @@ data class Chapter(
     val goal: String,
     val topics: List<Topic>,
     val gate: ChapterGate? = null,
+    val practical: PracticalResult? = null,
 ) {
     val topicsDone: Boolean get() = topics.isNotEmpty() && topics.all { it.isComplete }
-    /** M1: a chapter is finished when every topic is done and the quiz is passed (practicals join in M2). */
-    val isFinished: Boolean get() = topicsDone && gate?.passed == true
+    val quizPassed: Boolean get() = gate?.passed == true
+    /** Quizzes passed before M2 didn't need a practical, so those chapters stay finished. */
+    val practicalRequired: Boolean get() = gate?.requiresPractical != false
+    val practicalPassed: Boolean get() = practical?.passed == true
+    /** Finished when every topic is done, the quiz is passed, and the practical is passed. */
+    val isFinished: Boolean get() = topicsDone && quizPassed && (practicalPassed || !practicalRequired)
 }
 
 data class Topic(
@@ -52,6 +57,19 @@ data class ChapterGate(
     val passed: Boolean,
     val completedAt: Long,
     val variant: Int,
+    /** False only for quizzes passed before practicals existed (stored JSON without the field). */
+    val requiresPractical: Boolean = false,
+)
+
+/** Best practical result. Stored as JSON in Chapter.practicalResult. */
+@Serializable
+data class PracticalResult(
+    val score: Double,
+    val passed: Boolean,
+    /** EXACT (checked by code) or AI_GRADED. */
+    val trust: String,
+    val kind: String,
+    val completedAt: Long,
 )
 
 data class SubjectOutline(val subject: Subject, val chapters: List<Chapter>) {
@@ -63,16 +81,20 @@ data class SubjectOutline(val subject: Subject, val chapters: List<Chapter>) {
 sealed interface NextStep {
     data class OpenTopic(val topicId: String, val title: String, val chapterTitle: String) : NextStep
     data class TakeQuiz(val chapterId: String, val chapterTitle: String) : NextStep
+    data class DoPractical(val chapterId: String, val chapterTitle: String) : NextStep
     data object CourseComplete : NextStep
 
     companion object {
-        /** The first unfinished chapter decides: its first open topic, else its quiz. */
+        /** The first unfinished chapter decides: its first open topic, else its quiz, else its practical. */
         fun of(outline: SubjectOutline): NextStep {
             val chapter = outline.chapters.firstOrNull { it.topics.isNotEmpty() && !it.isFinished }
                 ?: return CourseComplete
             val topic = chapter.topics.firstOrNull { !it.isComplete }
-            return if (topic != null) OpenTopic(topic.id, topic.title, chapter.title)
-            else TakeQuiz(chapter.id, chapter.title)
+            return when {
+                topic != null -> OpenTopic(topic.id, topic.title, chapter.title)
+                !chapter.quizPassed -> TakeQuiz(chapter.id, chapter.title)
+                else -> DoPractical(chapter.id, chapter.title)
+            }
         }
     }
 }

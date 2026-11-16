@@ -31,12 +31,12 @@ import org.robolectric.annotation.Config
 class MigrationTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
-    @Test fun version1DataSurvivesMigrationToVersion2() = runBlocking {
-        val file = context.getDatabasePath("migration-test.db").apply { parentFile?.mkdirs(); delete() }
+    /** Creates an empty database at [version] from the committed schema and returns an open connection. */
+    private fun createAt(version: Int, name: String): Pair<File, androidx.sqlite.SQLiteConnection> {
+        val file = context.getDatabasePath(name).apply { parentFile?.mkdirs(); delete() }
         val schema = Json.parseToJsonElement(
-            File("schemas/com.example.learnanything.core.data.db.AppDatabase/1.json").readText(),
+            File("schemas/com.example.learnanything.core.data.db.AppDatabase/$version.json").readText(),
         ).jsonObject["database"]!!.jsonObject
-
         val connection = AndroidSQLiteDriver().open(file.path)
         schema["entities"]!!.jsonArray.forEach { entity ->
             val e = entity.jsonObject
@@ -47,10 +47,15 @@ class MigrationTest {
             }
         }
         schema["setupQueries"]!!.jsonArray.forEach { connection.execSQL(it.jsonPrimitive.content) }
+        connection.execSQL("PRAGMA user_version = $version")
+        return file to connection
+    }
+
+    @Test fun version1DataSurvivesMigrationToVersion2() = runBlocking {
+        val (file, connection) = createAt(1, "migration-test.db")
         connection.execSQL("INSERT INTO subject VALUES ('s1','SQL joins','Learn SQL','BEGINNER',3,'Summary here','ACTIVE',1,1,NULL)")
         connection.execSQL("INSERT INTO chapter VALUES ('c1','s1',0,'Basics','Write joins',NULL,1,NULL)")
         connection.execSQL("INSERT INTO topic VALUES ('t1','c1',0,'Inner joins','[\"Write one\"]','[]',15,NULL,1,NULL)")
-        connection.execSQL("PRAGMA user_version = 1")
         connection.close()
 
         val db = Room.databaseBuilder<AppDatabase>(context, file.path).setDriver(AndroidSQLiteDriver()).build()
@@ -63,6 +68,24 @@ class MigrationTest {
         val learning = LearningRepository(db, TestClock())
         learning.applySession("t1", "Inner joins", listOf(true))
         assertThat(learning.observeProgress().first().topicsTotal).isEqualTo(1)
+        db.close()
+    }
+
+    @Test fun chapterPassedBeforePracticalsStaysFinishedAfterMigrationToVersion3() = runBlocking {
+        val (file, connection) = createAt(2, "migration-test-v3.db")
+        connection.execSQL("INSERT INTO subject VALUES ('s1','SQL joins','Learn SQL','BEGINNER',3,'Summary','ACTIVE',NULL,1,1,NULL)")
+        connection.execSQL(
+            "INSERT INTO chapter VALUES ('c1','s1',0,'Basics','Write joins','{\"score\":0.9,\"passed\":true,\"completedAt\":1,\"variant\":1}',1,NULL)",
+        )
+        connection.execSQL("INSERT INTO topic VALUES ('t1','c1',0,'Inner joins','[\"Write one\"]','[]',15,NULL,5,1,NULL)")
+        connection.close()
+
+        val db = Room.databaseBuilder<AppDatabase>(context, file.path).setDriver(AndroidSQLiteDriver()).build()
+        val chapter = RoomSubjectRepository(db, TestClock()).observeOutline("s1").first()!!.chapters.single()
+        assertThat(chapter.practical).isNull()
+        assertThat(chapter.practicalRequired).isFalse()
+        assertThat(chapter.isFinished).isTrue()
+        assertThat(LearningRepository(db, TestClock()).observeProgress().first().chaptersPassed).isEqualTo(1)
         db.close()
     }
 }

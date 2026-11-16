@@ -76,6 +76,9 @@ interface SubjectDao {
     @Query("UPDATE chapter SET gateResult = :json, updatedAt = :now WHERE id = :id")
     suspend fun setGate(id: String, json: String, now: Long)
 
+    @Query("UPDATE chapter SET practicalResult = :json, updatedAt = :now WHERE id = :id")
+    suspend fun setPracticalResult(id: String, json: String, now: Long)
+
     @Query(
         """
         SELECT topic.id AS topicId, chapter.subjectId AS subjectId, topic.completedAt AS completedAt

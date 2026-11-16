@@ -97,7 +97,7 @@ class SubmitQuizUseCase @Inject constructor(
         results.groupBy { it.first.topicId }.forEach { (topicId, rs) ->
             titles[topicId]?.let { learning.applySession(topicId, it, rs.map { r -> r.second.correct }) }
         }
-        learning.recordGate(place.chapter.id, ChapterGate(score, passed, time.now(), learning.quizVariant(place.chapter.id)))
+        learning.recordGate(place.chapter.id, ChapterGate(score, passed, time.now(), learning.quizVariant(place.chapter.id), requiresPractical = true))
         subjects.touch(place.subject.id)
         return QuizOutcome(score, passed, results)
     }

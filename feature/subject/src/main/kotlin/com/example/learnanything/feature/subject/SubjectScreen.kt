@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,13 +51,14 @@ import com.example.learnanything.core.model.NextStep
 import com.example.learnanything.core.ui.components.EmptyState
 import kotlin.math.roundToInt
 
-/** Subject map: progress, chapters, topics and quizzes. The one primary action is Continue. */
+/** Subject map: progress, chapters, topics, quizzes and practicals. The one primary action is Continue. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubjectScreen(
     subjectId: String,
     onOpenTopic: (String) -> Unit,
     onOpenQuiz: (String) -> Unit,
+    onOpenPractical: (String) -> Unit,
     onEditOutline: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -98,6 +100,11 @@ fun SubjectScreen(
                     icon = { Icon(Icons.Default.Star, contentDescription = null) },
                     text = { Text("Take the chapter quiz") },
                 )
+                is NextStep.DoPractical -> ExtendedFloatingActionButton(
+                    onClick = { onOpenPractical(next.chapterId) },
+                    icon = { Icon(Icons.Default.Build, contentDescription = null) },
+                    text = { Text("Do the practical") },
+                )
                 else -> Unit
             }
         },
@@ -120,6 +127,7 @@ fun SubjectScreen(
                         nextTopicId = (s.next as? NextStep.OpenTopic)?.topicId,
                         onTopicClick = onOpenTopic,
                         onQuizClick = { onOpenQuiz(chapter.id) },
+                        onPracticalClick = { onOpenPractical(chapter.id) },
                     )
                 }
             }
@@ -152,7 +160,13 @@ private fun Header(s: SubjectUiState.Ready) {
 }
 
 @Composable
-private fun ChapterCard(chapter: Chapter, nextTopicId: String?, onTopicClick: (String) -> Unit, onQuizClick: () -> Unit) {
+private fun ChapterCard(
+    chapter: Chapter,
+    nextTopicId: String?,
+    onTopicClick: (String) -> Unit,
+    onQuizClick: () -> Unit,
+    onPracticalClick: () -> Unit,
+) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 12.dp)) {
             Column(Modifier.padding(horizontal = 16.dp)) {
@@ -202,6 +216,33 @@ private fun ChapterCard(chapter: Chapter, nextTopicId: String?, onTopicClick: (S
                     quizLabel,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (chapter.topicsDone) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            val practical = chapter.practical
+            val practicalOpen = chapter.quizPassed
+            val practicalLabel = when {
+                practical?.passed == true -> "Practical: passed" + if (practical.trust == "AI_GRADED") " (AI-graded)" else ""
+                practical != null -> "Practical: not passed yet"
+                !chapter.practicalRequired && chapter.quizPassed -> "Practical: optional"
+                practicalOpen -> "Practical: ready"
+                else -> "Practical: after the quiz"
+            }
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = practicalOpen, onClick = onPracticalClick).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (practical?.passed == true) Icons.Default.CheckCircle else Icons.Default.Build,
+                    contentDescription = null,
+                    tint = if (practicalOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    practicalLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (practicalOpen) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }
