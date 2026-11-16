@@ -26,7 +26,10 @@ object FailureMessages {
             needsSettings = true,
         )
         FailureKind.BLOCKED -> UserMessage("Gemini declined this request. Try rewording it.")
-        FailureKind.INVALID_OUTPUT -> UserMessage("The AI's answer didn't pass our checks twice. Try again.")
+        FailureKind.INVALID_OUTPUT -> UserMessage(
+            "The AI's answer didn't pass our checks twice. Try again.\n" +
+                "Detail: " + detail.substringAfter("validation: ").take(300),
+        )
         FailureKind.PROVIDER_ERROR -> UserMessage(detail, needsSettings = detail.contains("404"))
     }
 }

@@ -177,7 +177,13 @@ class GeminiProvider(
 
     internal fun buildBody(request: AiRequest, field: SchemaField, thoughts: Boolean = true, withSchema: Boolean = true): JsonObject = buildJsonObject {
         putJsonObject("systemInstruction") {
-            putJsonArray("parts") { addJsonObject { put("text", request.system) } }
+            // Gemini's response schema has its limits stripped (see GeminiSchema), so the
+            // full schema goes in the instructions: the model still sees every limit.
+            val system = request.schemaJson?.let {
+                request.system + "\n\nReply with one JSON object that satisfies this JSON Schema, " +
+                    "including every length, count and range limit:\n" + it
+            } ?: request.system
+            putJsonArray("parts") { addJsonObject { put("text", system) } }
         }
         putJsonArray("contents") {
             addJsonObject {
