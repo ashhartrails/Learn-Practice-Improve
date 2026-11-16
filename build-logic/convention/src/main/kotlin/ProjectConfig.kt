@@ -39,6 +39,10 @@ internal fun LibraryExtension.configureCommon() {
 }
 
 internal fun Project.addUnitTestDependencies() {
+    // Modules without tests yet (screens-only features) should not fail the build.
+    tasks.withType(org.gradle.api.tasks.testing.Test::class.java).configureEach {
+        failOnNoDiscoveredTests.set(false)
+    }
     dependencies.apply {
         add("testImplementation", libs.lib("junit"))
         add("testImplementation", libs.lib("truth"))

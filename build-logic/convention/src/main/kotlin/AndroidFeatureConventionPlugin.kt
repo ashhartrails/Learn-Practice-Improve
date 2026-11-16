@@ -15,6 +15,7 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
             add("implementation", libs.lib("androidx-lifecycle-viewmodel-compose"))
             add("implementation", libs.lib("androidx-hilt-lifecycle-viewmodel-compose"))
             add("implementation", libs.lib("compose-material-icons-core"))
+            add("testImplementation", libs.lib("json-schema-validator"))
         }
     }
 }
