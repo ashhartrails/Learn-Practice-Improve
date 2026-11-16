@@ -4,7 +4,6 @@ import com.example.learnanything.core.ai.Samples
 import com.example.learnanything.core.model.ai.AiSchema
 import com.google.common.truth.Truth.assertThat
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import org.junit.Test
 
 class OutlineSchemaValidationTest {
@@ -60,6 +59,6 @@ class OutlineSchemaValidationTest {
     }
 
     @Test fun nonObjectRootFails() {
-        assertThat(validator.validate(schema, Json.parseToJsonElement("[1,2,3]") as JsonElement)).isNotEmpty()
+        assertThat(validator.validate(schema, Json.parseToJsonElement("[1,2,3]"))).isNotEmpty()
     }
 }

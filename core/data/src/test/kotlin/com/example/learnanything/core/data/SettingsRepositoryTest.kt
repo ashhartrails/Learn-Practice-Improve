@@ -5,6 +5,7 @@ import com.example.learnanything.core.data.settings.SecretCipher
 import com.example.learnanything.core.data.settings.SettingsRepository
 import com.google.common.truth.Truth.assertThat
 import java.io.File
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -13,6 +14,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SettingsRepositoryTest {
     @get:Rule val tmp = TemporaryFolder()
 
