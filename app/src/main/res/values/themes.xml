@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.LearnAnything" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+    <color name="window_background">#FFF9FAFA</color>
+    <color name="ic_launcher_background">#FF00696B</color>
+</resources>
