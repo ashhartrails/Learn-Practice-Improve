@@ -34,7 +34,7 @@ object AiModule {
     fun okHttp(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         // Streaming responses can pause while the model thinks.
-        .readTimeout(180, TimeUnit.SECONDS)
+        .readTimeout(300, TimeUnit.SECONDS)
         .build()
 
     @Provides @Singleton
