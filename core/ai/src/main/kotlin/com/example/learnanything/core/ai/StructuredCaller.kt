@@ -5,6 +5,7 @@ import com.example.learnanything.core.ai.validation.SchemaValidator
 import com.example.learnanything.core.model.ai.PromptSpec
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
@@ -27,7 +28,7 @@ sealed interface StructuredResult<out T> {
     ) : StructuredResult<Nothing>
 }
 
-enum class FailureKind { NO_PROVIDER, UNAUTHORIZED, RATE_LIMITED, NETWORK, BLOCKED, INVALID_OUTPUT, PROVIDER_ERROR }
+enum class FailureKind { NO_PROVIDER, UNAUTHORIZED, RATE_LIMITED, NETWORK, BUSY, BLOCKED, INVALID_OUTPUT, PROVIDER_ERROR }
 
 /**
  * Runs one structured AI call end to end:
@@ -64,14 +65,24 @@ class StructuredCaller @Inject constructor(
         for (provider in providers) {
             var prompt = spec.user
             for (attempt in 1..MAX_ATTEMPTS_PER_PROVIDER) {
-                val output = try {
-                    collect(provider, spec, schemaJson, prompt, attempt, onProgress)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: AiException) {
-                    lastFailure = e.toFailure()
-                    break // provider-level failure: move to the next provider
+                var busyRetries = 0
+                var output: Output? = null
+                while (output == null) {
+                    try {
+                        output = collect(provider, spec, schemaJson, prompt, attempt, onProgress)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: AiException) {
+                        // A busy server (500/502/503/504) is usually gone in seconds: wait and retry.
+                        if (e is AiException.Server && e.httpCode in BUSY_CODES && busyRetries < BUSY_BACKOFF_MS.size) {
+                            delay(BUSY_BACKOFF_MS[busyRetries++])
+                            continue
+                        }
+                        lastFailure = e.toFailure()
+                        break
+                    }
                 }
+                if (output == null) break // provider-level failure: move to the next provider
                 when (val checked = check(output.text, schemaJson, serializer, rules)) {
                     is Check.Ok -> {
                         cache.put(hash, spec.callType, checked.canonical)
@@ -154,7 +165,13 @@ class StructuredCaller @Inject constructor(
         is AiException.RateLimited -> StructuredResult.Failure(FailureKind.RATE_LIMITED, message.orEmpty(), retryAfterSeconds)
         is AiException.Network -> StructuredResult.Failure(FailureKind.NETWORK, message.orEmpty())
         is AiException.Blocked -> StructuredResult.Failure(FailureKind.BLOCKED, message.orEmpty())
-        is AiException.Server, is AiException.BadResponse ->
+        is AiException.Server ->
+            if (httpCode in BUSY_CODES) {
+                StructuredResult.Failure(FailureKind.BUSY, message.orEmpty())
+            } else {
+                StructuredResult.Failure(FailureKind.PROVIDER_ERROR, message.orEmpty())
+            }
+        is AiException.BadResponse ->
             StructuredResult.Failure(FailureKind.PROVIDER_ERROR, message.orEmpty())
     }
 
@@ -162,6 +179,9 @@ class StructuredCaller @Inject constructor(
         /** First try plus one retry that includes the validation errors. */
         const val MAX_ATTEMPTS_PER_PROVIDER = 2
         private const val MAX_ERRORS_IN_RETRY = 10
+        private val BUSY_CODES = setOf(500, 502, 503, 504)
+        /** Waits before each retry when the server is busy. */
+        private val BUSY_BACKOFF_MS = longArrayOf(2_000, 6_000)
 
         internal fun retryPrompt(original: String, errors: List<String>): String = buildString {
             append(original)

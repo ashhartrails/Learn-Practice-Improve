@@ -20,6 +20,11 @@ object FailureMessages {
                 "No connection. Check your internet and try again."
             } + "\nDetail: $detail",
         )
+        FailureKind.BUSY -> UserMessage(
+            "Gemini is busy right now. We retried twice. Try again in a minute, " +
+                "or pick another model in Settings.",
+            needsSettings = true,
+        )
         FailureKind.BLOCKED -> UserMessage("Gemini declined this request. Try rewording it.")
         FailureKind.INVALID_OUTPUT -> UserMessage("The AI's answer didn't pass our checks twice. Try again.")
         FailureKind.PROVIDER_ERROR -> UserMessage(detail, needsSettings = detail.contains("404"))

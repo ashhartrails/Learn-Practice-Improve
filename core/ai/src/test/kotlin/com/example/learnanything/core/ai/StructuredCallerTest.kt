@@ -89,6 +89,22 @@ class StructuredCallerTest {
         assertThat(result.retryAfterSeconds).isEqualTo(30)
     }
 
+    @Test fun busyServerIsRetriedThenSucceeds() = runTest {
+        val busy = AiException.Server("p1", 503, "high demand")
+        val provider = ScriptedProvider("p1", busy, busy, Samples.VALID_OUTLINE)
+        val result = caller(provider).outline() as StructuredResult.Success
+
+        assertThat(provider.requests).hasSize(3)
+        assertThat(result.providerId).isEqualTo("p1")
+    }
+
+    @Test fun busyServerThatStaysBusyReportsBusy() = runTest {
+        val busy = AiException.Server("p1", 503, "high demand")
+        val result = caller(ScriptedProvider("p1", busy, busy, busy)).outline() as StructuredResult.Failure
+
+        assertThat(result.kind).isEqualTo(FailureKind.BUSY)
+    }
+
     @Test fun cacheHitSkipsTheProvider() = runTest {
         caller(ScriptedProvider("p1", Samples.VALID_OUTLINE)).outline()
         val second = ScriptedProvider("p2")
