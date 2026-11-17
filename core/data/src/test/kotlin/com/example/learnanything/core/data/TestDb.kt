@@ -44,9 +44,12 @@ object Fixtures {
     const val Q2 = """{"kind":"numeric","prompt":"Rows in a 3 x 4 cross join?","options":[],"correct":[],"number":12,"tolerance":0,"accepted":[],"explanation":"3 times 4."}"""
     const val Q3 = """{"kind":"short_text","prompt":"Keyword that filters rows?","options":[],"correct":[],"accepted":["WHERE"],"explanation":"WHERE filters."}"""
 
-    const val LESSON = """
+    private val WORDS = (1..70).joinToString(" ") { "word$it" }
+    val CARDS = (1..5).joinToString(",", "[", "]") { """{"heading":"Idea $it","body":"A join combines rows on a **key**. $WORDS"}""" }
+
+    val LESSON = """
         {"whyItMatters":"Joins answer questions across tables.",
-         "cards":[{"heading":"Idea","body":"A join combines rows from two tables."},{"heading":"Keys","body":"Rows match on a **key**."}],
+         "cards":$CARDS,
          "workedExample":{"problem":"Orders with customer names.","steps":["Pick tables","Match on customer_id"],"answer":"SELECT ..."},
          "tryIt":$Q1, "checks":[$Q2,$Q3]}
     """

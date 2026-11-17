@@ -51,10 +51,15 @@ class TopicViewModel @AssistedInject constructor(
 
     init { load() }
 
-    fun load() {
-        _state.value = TopicUiState.Loading("Opening…")
+    fun load() = load(rewrite = false)
+
+    /** Writes a fresh, longer lesson; answers given so far are cleared. */
+    fun rewrite() = load(rewrite = true)
+
+    private fun load(rewrite: Boolean) {
+        _state.value = TopicUiState.Loading(if (rewrite) "Rewriting the lesson…" else "Opening…")
         viewModelScope.launch {
-            val result = openLesson(topicId) { p -> _state.value = TopicUiState.Loading(ProgressText.of(p, "your lesson")) }
+            val result = openLesson(topicId, rewrite) { p -> _state.value = TopicUiState.Loading(ProgressText.of(p, "your lesson")) }
             _state.value = when (result) {
                 is LessonResult.Ready -> TopicUiState.Ready(result.place, result.lesson)
                 is LessonResult.Failed -> TopicUiState.Failed(result.message)

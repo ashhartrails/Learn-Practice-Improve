@@ -39,10 +39,18 @@ data class LessonContext(
 )
 
 object LessonRules {
+    const val MIN_CARDS = 5
+    const val MIN_AVERAGE_WORDS = 60
+
     fun check(l: LessonResponse): List<String> {
         val p = mutableListOf<String>()
         p += QuestionRules.check(l.tryIt, "tryIt")
         l.checks.forEachIndexed { i, q -> p += QuestionRules.check(q, "checks[$i]") }
+        if (l.cards.size < MIN_CARDS) p += "write at least $MIN_CARDS cards (you wrote ${l.cards.size})"
+        val words = l.cards.map { c -> c.body.split(Regex("\\s+")).count { it.isNotBlank() } }
+        if (words.isNotEmpty() && words.average() < MIN_AVERAGE_WORDS) {
+            p += "cards are too short: aim for 80 to 180 words per card body (average was ${words.average().toInt()})"
+        }
         val prompts = l.checks.map { it.prompt.trim().lowercase() }
         if (prompts.toSet().size != prompts.size) p += "check questions must be different from each other"
         p += TextSafety.urlProblems(
@@ -56,15 +64,22 @@ object LessonRules {
 }
 
 object LessonPrompt {
-    const val VERSION = 1
+    /** v2 (M3): longer, deeper lessons after owner feedback that v1 lessons were too short. */
+    const val VERSION = 2
 
     private val SYSTEM = """
         You are an expert tutor writing one short, interactive lesson for a single learner.
         Write for the learner's level. Be concrete and use examples from the learner's context.
+        Teach the topic properly: the learner should be able to apply it afterwards, not just
+        recognise the words. Build up from what they already know, explain the reasoning behind
+        each idea, and show it in action.
         Structure:
-        - whyItMatters: 1 or 2 sentences on why this topic matters to this learner.
-        - cards: 3 to 6 explanation cards, one idea each, 40 to 120 words per body.
-        - workedExample: a realistic problem solved step by step.
+        - whyItMatters: 2 or 3 sentences on why this topic matters to this learner.
+        - cards: 5 to 8 explanation cards, one idea each, 80 to 180 words per body. Include a
+          short concrete example in most cards (a code snippet, a calculation, a real case).
+          The second-to-last card is "Common mistakes": 2 to 4 typical errors and how to avoid them.
+          The last card is "Recap": the key points as a "- " list.
+        - workedExample: a realistic problem solved in 3 to 6 clear steps, explaining why each step.
         - tryIt: one practice question about the worked example's idea.
         - checks: 2 or 3 questions that test the objectives. Make them different from tryIt.
         Card bodies may use only this formatting: **bold**, `inline code`, fenced code blocks

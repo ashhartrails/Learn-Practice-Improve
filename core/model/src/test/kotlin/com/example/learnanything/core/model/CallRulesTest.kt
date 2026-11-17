@@ -28,10 +28,15 @@ class CallRulesTest {
     }
 
     @Test fun lessonChecksQuestionsAndUrls() {
-        val lesson = LessonResponse("It matters.", listOf(LessonCard("Idea", "Body text here")), WorkedExample("P", listOf("S"), "A"), q, listOf(q, q.copy(prompt = "Another?")))
+        val body = (1..80).joinToString(" ") { "word$it" }
+        val cards = (1..5).map { LessonCard("Idea $it", body) }
+        val lesson = LessonResponse("It matters.", cards, WorkedExample("P", listOf("S"), "A"), q, listOf(q, q.copy(prompt = "Another?")))
         assertThat(LessonRules.check(lesson)).isEmpty()
-        val bad = lesson.copy(cards = listOf(LessonCard("Idea", "Read www.example.com")), checks = listOf(q, q))
+        val bad = lesson.copy(cards = cards.drop(1) + LessonCard("Idea", "Read www.example.com $body"), checks = listOf(q, q))
         assertThat(LessonRules.check(bad)).hasSize(2)
+        val short = lesson.copy(cards = cards.take(3).map { it.copy(body = "Too short.") })
+        assertThat(LessonRules.check(short).joinToString()).contains("at least 5 cards")
+        assertThat(LessonRules.check(short).joinToString()).contains("too short")
     }
 
     @Test fun quizMustCoverEveryTopicWithValidIndexes() {

@@ -53,11 +53,13 @@ class OpenLessonUseCase @Inject constructor(
     private val caller: StructuredCaller,
     private val learning: LearningRepository,
     private val subjects: SubjectRepository,
+    private val time: com.example.learnanything.core.data.TimeSource,
 ) {
-    suspend operator fun invoke(topicId: String, onProgress: (CallProgress) -> Unit = {}): LessonResult {
+    /** [rewrite] replaces the stored lesson with a newly written one. */
+    suspend operator fun invoke(topicId: String, rewrite: Boolean = false, onProgress: (CallProgress) -> Unit = {}): LessonResult {
         val place = findTopic(topicId) ?: return LessonResult.Failed(UserMessage("This topic no longer exists."))
         subjects.touch(place.subject.id)
-        learning.storedLesson(topicId)?.let { return LessonResult.Ready(place, it) }
+        if (!rewrite) learning.storedLesson(topicId)?.let { return LessonResult.Ready(place, it) }
 
         val spec = LessonPrompt.build(
             LessonContext(
@@ -72,7 +74,7 @@ class OpenLessonUseCase @Inject constructor(
                 prerequisites = place.topic.prerequisites,
                 earlierTopics = place.earlierTopics.map { it.title },
             ),
-        )
+        ).let { if (rewrite) it.copy(user = it.user + "\nRewrite ${time.now()}: write a fresh version.") else it }
         return when (val r = caller.call(spec, LessonResponse.serializer(), LessonRules::check, onProgress)) {
             is StructuredResult.Success -> LessonResult.Ready(place, learning.saveLesson(topicId, r.value))
             is StructuredResult.Failure -> LessonResult.Failed(FailureMessages.of(r.kind, r.message, r.retryAfterSeconds))

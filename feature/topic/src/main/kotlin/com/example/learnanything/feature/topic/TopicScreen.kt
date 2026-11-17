@@ -16,7 +16,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +36,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +60,8 @@ fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> U
         creationCallback = { it.create(topicId) },
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmRewrite by remember { mutableStateOf(false) }
 
     LaunchedEffect((state as? TopicUiState.Ready)?.finished) {
         if ((state as? TopicUiState.Ready)?.finished == true) onFinished()
@@ -66,6 +75,14 @@ fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> U
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                },
+                actions = {
+                    if (state is TopicUiState.Ready) {
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Rewrite lesson") }, onClick = { menuOpen = false; confirmRewrite = true })
+                        }
+                    }
                 },
             )
         },
@@ -111,6 +128,16 @@ fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> U
             }
             is TopicUiState.Ready -> Lesson(s, padding, viewModel)
         }
+    }
+
+    if (confirmRewrite) {
+        AlertDialog(
+            onDismissRequest = { confirmRewrite = false },
+            title = { Text("Rewrite this lesson?") },
+            text = { Text("The AI writes a new, fuller version. This uses one AI request, and your answers on this page are cleared.") },
+            confirmButton = { TextButton(onClick = { confirmRewrite = false; viewModel.rewrite() }) { Text("Rewrite") } },
+            dismissButton = { TextButton(onClick = { confirmRewrite = false }) { Text("Cancel") } },
+        )
     }
 }
 

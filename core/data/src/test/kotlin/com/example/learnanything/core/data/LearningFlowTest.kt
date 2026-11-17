@@ -68,7 +68,7 @@ class LearningFlowTest {
 
     @After fun tearDown() = db.close()
 
-    private fun openLesson() = OpenLessonUseCase(FindTopicUseCase(subjects), caller, learning, subjects)
+    private fun openLesson() = OpenLessonUseCase(FindTopicUseCase(subjects), caller, learning, subjects, clock)
     private fun correctAnswer(q: Question): Answer = when (q) {
         is Question.SingleChoice -> Answer.Choice(setOf(q.correctIndex))
         is Question.MultiChoice -> Answer.Choice(q.correct)
@@ -86,6 +86,28 @@ class LearningFlowTest {
         val again = openLesson()(topicId) as LessonResult.Ready
         assertThat(ai.calls).hasSize(1)
         assertThat(again.lesson.checks.map { it.id }).isEqualTo(first.lesson.checks.map { it.id })
+    }
+
+    @Test fun rewriteReplacesTheStoredLessonWithANewCall() = runTest {
+        val topicId = subjects.outline(subjectId)!!.chapters[0].topics[0].id
+        val first = openLesson()(topicId) as LessonResult.Ready
+        clock.now += 1_000
+        val rewritten = openLesson()(topicId, rewrite = true) as LessonResult.Ready
+        assertThat(ai.calls).hasSize(2)
+        assertThat(ai.calls[1].prompt).contains("Rewrite")
+        assertThat(rewritten.lesson.checks.map { it.id }).containsNoneIn(first.lesson.checks.map { it.id })
+        assertThat((openLesson()(topicId) as LessonResult.Ready).lesson.checks.map { it.id })
+            .isEqualTo(rewritten.lesson.checks.map { it.id })
+    }
+
+    @Test fun shortLessonsAreSentBackWithTheProblem() = runTest {
+        val short = Fixtures.LESSON.replace(Fixtures.CARDS, """[{"heading":"Idea","body":"Too short but over twenty chars."},{"heading":"More","body":"Also short but over twenty chars."}]""")
+        var n = 0
+        ai = FakeAi(mapOf(CallType.LESSON to { if (n++ == 0) short else Fixtures.LESSON }))
+        caller = StructuredCaller(ProviderRouter(listOf(ai)), JsonSchemaValidator(), RoomAiCacheStore(db.aiCacheDao(), clock), Json { ignoreUnknownKeys = true })
+        val topicId = subjects.outline(subjectId)!!.chapters[0].topics[0].id
+        openLesson()(topicId) as LessonResult.Ready
+        assertThat(ai.calls[1].prompt).contains("at least 5 cards")
     }
 
     @Test fun fullChapterLoopPassesTheGateAndSchedulesReviews() = runTest {
