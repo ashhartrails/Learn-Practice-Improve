@@ -35,6 +35,7 @@ import com.example.learnanything.feature.settings.SettingsScreen
 import com.example.learnanything.feature.subject.SubjectScreen
 import com.example.learnanything.feature.practical.PracticalScreen
 import com.example.learnanything.feature.test.QuizScreen
+import com.example.learnanything.feature.topic.RescueScreen
 import com.example.learnanything.feature.test.ReviewScreen
 import com.example.learnanything.feature.topic.TopicScreen
 import kotlinx.serialization.Serializable
@@ -48,6 +49,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class TopicKey(val topicId: String) : NavKey
 @Serializable data class QuizKey(val chapterId: String) : NavKey
 @Serializable data class PracticalKey(val chapterId: String) : NavKey
+@Serializable data class RescueKey(val topicId: String, val startRung: String? = null) : NavKey
 @Serializable data object ReviewKey : NavKey
 @Serializable data object SettingsKey : NavKey
 
@@ -141,6 +143,15 @@ fun LearnApp() {
                         TopicScreen(
                             topicId = key.topicId,
                             onFinished = { backStack.removeLastOrNull() },
+                            onOpenSettings = { backStack.add(SettingsKey) },
+                            onRescue = { rung -> backStack.add(RescueKey(key.topicId, rung)) },
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<RescueKey> { key ->
+                        RescueScreen(
+                            topicId = key.topicId,
+                            startRung = key.startRung,
                             onOpenSettings = { backStack.add(SettingsKey) },
                             onBack = { backStack.removeLastOrNull() },
                         )

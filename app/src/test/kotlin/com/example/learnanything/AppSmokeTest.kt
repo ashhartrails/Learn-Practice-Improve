@@ -31,6 +31,14 @@ import com.example.learnanything.core.model.outline.OutlineChapter
 import com.example.learnanything.core.model.outline.OutlineRequest
 import com.example.learnanything.core.model.outline.OutlineResponse
 import com.example.learnanything.core.model.outline.OutlineTopic
+import com.example.learnanything.core.ai.PromptHasher
+import com.example.learnanything.core.data.repository.RoomAiCacheStore
+import com.example.learnanything.core.model.ai.CallType
+import com.example.learnanything.core.model.rescue.RescueContext
+import com.example.learnanything.core.model.rescue.RescuePrompt
+import com.example.learnanything.core.model.rescue.RescueRung
+import com.example.learnanything.core.model.resources.ResourcesContext
+import com.example.learnanything.core.model.resources.ResourcesPrompt
 import com.example.learnanything.core.model.practical.PracticalKind
 import com.example.learnanything.core.model.practical.PracticalResponse
 import com.example.learnanything.core.model.question.QuestionDto
@@ -184,8 +192,70 @@ class AppSmokeTest {
         shot("15-progress")
     }
 
+    @Test fun rescueLadderHelpsFromTheLesson() {
+        val seeded = seedCourse()
+        seedRescueCache(seeded)
+        launch()
+        waitForText("SQL joins from scratch")
+        click("SQL joins from scratch")
+        waitForText("Start course")
+        click("Start course")
+        waitForText("Continue: Inner joins")
+        click("Continue: Inner joins")
+        waitForText("Why it matters")
+
+        // Lesson list: 0 chapter, 1 why, 2 cards, 3 "I don't get it".
+        scrollToItem(3)
+        click("I don't get it")
+        waitForText("Step 1 of 8: Simpler words")
+        waitForText("Joins, simply")
+        shot("16-rescue-simpler")
+
+        // The check question decides: the lesson's first check (LEFT is right).
+        scrollToItem(3)
+        click("LEFT")
+        compose.onAllNodesWithText("Check").onFirst().performClick()
+        waitForText("It clicked", substring = true)
+        shot("17-rescue-helped")
+        click("Back to the lesson")
+        // Back on the lesson (scrolled where it was).
+        waitForText("I don't get it")
+
+        // "Watch a short video" without a YouTube key offers a search chip.
+        scrollToItem(1)
+        click("Watch a short video")
+        waitForText("sql inner join explained")
+        shot("18-video-search-chip")
+    }
+
+    /** Puts AI replies for the rescue and resources calls in the cache, so no AI is needed. */
+    private fun seedRescueCache(seeded: Seeded) = runBlocking {
+        val db = Room.databaseBuilder<AppDatabase>(context, AppDatabase.NAME).setDriver(AndroidSQLiteDriver()).build()
+        val cache = RoomAiCacheStore(db.aiCacheDao()) { System.currentTimeMillis() }
+        val simpler = RescuePrompt.build(
+            RescueContext(
+                subjectTitle = "SQL joins from scratch",
+                level = Level.BEGINNER,
+                topicTitle = "Inner joins",
+                objectives = listOf("Write an INNER JOIN"),
+                prerequisites = emptyList(),
+                lessonSummary = seeded.lesson.cards.joinToString(" ") { "${it.heading}: ${it.body}" },
+                background = "",
+                knownSkills = "",
+            ),
+            RescueRung.SIMPLER,
+        )
+        val body = "Think of two lists: orders and customers. " + (1..40).joinToString(" ") { "word$it" }
+        cache.put(PromptHasher.hash(simpler), CallType.RESCUE, """{"title":"Joins, simply","body":"$body","blanks":[],"questions":[],"prerequisites":[],"rubric":[]}""")
+        val resources = ResourcesPrompt.build(ResourcesContext("SQL joins from scratch", "Inner joins", listOf("Write an INNER JOIN"), Level.BEGINNER.label))
+        cache.put(PromptHasher.hash(resources), CallType.RESOURCES, """{"searchQueries":["sql inner join explained"],"phetKey":"","visualDescription":"Two circles."}""")
+        db.close()
+    }
+
+    private data class Seeded(val lesson: LessonResponse)
+
     /** Writes a draft course with a stored lesson and quiz through a second Room connection. */
-    private fun seedCourse() = runBlocking {
+    private fun seedCourse(): Seeded = runBlocking {
         val db = Room.databaseBuilder<AppDatabase>(context, AppDatabase.NAME).setDriver(AndroidSQLiteDriver()).build()
         val subjects = RoomSubjectRepository(db) { System.currentTimeMillis() }
         val learning = LearningRepository(db) { System.currentTimeMillis() }
@@ -231,5 +301,6 @@ class AppSmokeTest {
             variant = 1,
         )
         db.close()
+        Seeded(lesson)
     }
 }

@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.learnanything.core.model.lesson.LessonCard
+import com.example.learnanything.core.model.rescue.RescueRung
 import com.example.learnanything.core.model.lesson.WorkedExample
 import com.example.learnanything.core.ui.components.ErrorCard
 import com.example.learnanything.core.ui.question.QuestionCard
@@ -54,7 +58,13 @@ import com.example.learnanything.core.ui.text.RichText
 /** A lesson: why it matters, swipeable cards, worked example, try it, then check questions. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> Unit, onBack: () -> Unit) {
+fun TopicScreen(
+    topicId: String,
+    onFinished: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onRescue: (startRung: String?) -> Unit,
+    onBack: () -> Unit,
+) {
     val viewModel = hiltViewModel<TopicViewModel, TopicViewModel.Factory>(
         key = "topic-$topicId",
         creationCallback = { it.create(topicId) },
@@ -126,7 +136,7 @@ fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> U
                     onAction = if (s.message.needsSettings) onOpenSettings else viewModel::load,
                 )
             }
-            is TopicUiState.Ready -> Lesson(s, padding, viewModel)
+            is TopicUiState.Ready -> Lesson(s, padding, viewModel, onRescue)
         }
     }
 
@@ -142,7 +152,7 @@ fun TopicScreen(topicId: String, onFinished: () -> Unit, onOpenSettings: () -> U
 }
 
 @Composable
-private fun Lesson(s: TopicUiState.Ready, padding: PaddingValues, viewModel: TopicViewModel) {
+private fun Lesson(s: TopicUiState.Ready, padding: PaddingValues, viewModel: TopicViewModel, onRescue: (String?) -> Unit) {
     val lesson = s.lesson.lesson
     LazyColumn(
         contentPadding = PaddingValues(
@@ -160,10 +170,18 @@ private fun Lesson(s: TopicUiState.Ready, padding: PaddingValues, viewModel: Top
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Why it matters", style = MaterialTheme.typography.labelLarge)
                     RichText(lesson.whyItMatters)
+                    AssistChip(
+                        onClick = { onRescue(RescueRung.VIDEO.name) },
+                        label = { Text("Watch a short video") },
+                        leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                    )
                 }
             }
         }
         item { Cards(lesson.cards) }
+        item {
+            OutlinedButton(onClick = { onRescue(null) }, modifier = Modifier.fillMaxWidth()) { Text("I don't get it") }
+        }
         item { Example(lesson.workedExample) }
         item {
             val item = s.lesson.tryIt

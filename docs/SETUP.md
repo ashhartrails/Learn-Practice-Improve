@@ -107,6 +107,24 @@ Menu names vary a little by brand. These are for Pixel and stock Android; on Sam
 
 Chapters you finished before this update stay finished; their practical shows as optional.
 
+
+### Trying M3: longer lessons, "I don't get it", videos and simulations
+1. **New lessons are longer** (5 to 8 cards, with a "Common mistakes" and a "Recap" card). For a lesson written before this update, open the topic and tap **⋮ → Rewrite lesson**. This uses one AI request and clears that page's answers.
+2. **"I don't get it"** sits under the lesson cards. Each screen tries one way of explaining (simpler words, an analogy, fill in the blanks, a video, a simulation, step-by-step questions, teach-back, a basics check). Answer the question under it: a right answer means it helped, and next time you're stuck the app starts with that way. **Show me another way** moves to the next one.
+3. **Better analogies:** open **You → ⚙ Settings → About you**, fill in your work and what you already know, and tap **Save**.
+4. **Watch a short video:** the chip under "Why it matters". Without a YouTube key it opens a YouTube search; with one, a short video plays inside the app. Tap **Find another** if the video isn't useful.
+5. **Simulations** (physics, chemistry, biology and maths topics) come from PhET and need internet. Tap **Open full screen** for a bigger view.
+
+### Optional: a YouTube key, so videos play inside the app
+1. Go to **console.cloud.google.com** and sign in with your Google account.
+2. At the top, click the project picker. Choose the project AI Studio created for your Gemini key (often named "Gemini API" or "Default Gemini Project"), or click **New project**, name it, and click **Create**.
+3. In the search bar, type **YouTube Data API v3**, open it, and click **Enable**.
+4. In the left menu, open **APIs & Services → Credentials**, then click **+ Create credentials → API key**. Copy the key.
+5. Recommended: click the new key, and under **API restrictions** choose **Restrict key → YouTube Data API v3**, then click **Save**.
+6. In the app, open **You → ⚙ Settings → YouTube key**, paste the key, and tap **Save**.
+
+The free quota is 10,000 units a day, and each video search costs 100, so about 100 searches a day. The app searches once per topic and remembers the video.
+
 ### Wireless option (Android 11+, same Wi-Fi network)
 **Developer options → Wireless debugging → On**. Then in Android Studio, open the device menu,
 choose **Pair Devices Using Wi-Fi**, and scan the QR code from the phone's **Wireless debugging → Pair device with QR code**.

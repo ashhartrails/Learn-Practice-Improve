@@ -11,4 +11,5 @@ dependencies {
     api(project(":core:model"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.compose.material.icons.core)
+    implementation(libs.androidx.browser)
 }
