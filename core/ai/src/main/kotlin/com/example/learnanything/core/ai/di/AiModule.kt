@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 @InstallIn(SingletonComponent::class)
 abstract class AiBindings {
     @Binds abstract fun schemaValidator(impl: JsonSchemaValidator): SchemaValidator
+    @Binds abstract fun videoSearch(impl: com.example.learnanything.core.ai.youtube.YouTubeVideoSearch): com.example.learnanything.core.ai.youtube.VideoSearch
 }
 
 @Module

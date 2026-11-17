@@ -133,3 +133,29 @@ interface AiCacheDao {
 
     @Upsert suspend fun put(entry: AiCacheEntity)
 }
+
+@Dao
+interface EnrichmentDao {
+    @Query("SELECT * FROM resource WHERE topicId = :topicId AND type = :type AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 1")
+    suspend fun resource(topicId: String, type: String): ResourceEntity?
+
+    @Upsert suspend fun upsertResource(resource: ResourceEntity)
+
+    @Query("UPDATE resource SET deletedAt = :now, updatedAt = :now WHERE topicId = :topicId AND type = :type AND deletedAt IS NULL")
+    suspend fun tombstoneResources(topicId: String, type: String, now: Long)
+
+    @Upsert suspend fun upsertRescueEvent(event: RescueEventEntity)
+
+    @Query("SELECT rung, COUNT(*) AS helpedCount FROM rescue_event WHERE helped = 1 AND deletedAt IS NULL GROUP BY rung")
+    suspend fun helpedCounts(): List<RungCount>
+
+    @Query("SELECT * FROM learner_profile WHERE id = :id AND deletedAt IS NULL")
+    suspend fun profile(id: String): LearnerProfileEntity?
+
+    @Query("SELECT * FROM learner_profile WHERE id = :id AND deletedAt IS NULL")
+    fun observeProfile(id: String): Flow<LearnerProfileEntity?>
+
+    @Upsert suspend fun upsertProfile(profile: LearnerProfileEntity)
+}
+
+data class RungCount(val rung: String, val helpedCount: Int)

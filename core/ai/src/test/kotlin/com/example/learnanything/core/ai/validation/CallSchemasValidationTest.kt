@@ -87,4 +87,20 @@ class CallSchemasValidationTest {
         assertThat(errors(AiSchema.GRADE_V1, ok)).isEmpty()
         assertThat(errors(AiSchema.GRADE_V1, ok.replace(",\"evidence\":\"a quote\"", ""))).isNotEmpty()
     }
+
+    @Test fun rescueSchemaAcceptsEachShape() {
+        val blanks = """{"title":"Fill the gaps","body":"First pick [1], then match on [2].","blanks":[{"accepted":["orders"]},{"accepted":["customer_id","customer id"]}],
+            "questions":[],"prerequisites":[],"rubric":[]}"""
+        assertThat(errors(AiSchema.RESCUE_V1, blanks)).isEmpty()
+        val prereq = """{"title":"Basics","body":"Two ideas first.","blanks":[],"questions":[],"rubric":[],
+            "prerequisites":[{"concept":"Primary keys","explanation":"A primary key identifies each row.","question":$q}]}"""
+        assertThat(errors(AiSchema.RESCUE_V1, prereq)).isEmpty()
+        assertThat(errors(AiSchema.RESCUE_V1, blanks.replace("\"rubric\":[]", "\"rubric\":[],\"url\":\"x\""))).isNotEmpty()
+    }
+
+    @Test fun resourcesSchemaNeedsQueries() {
+        val ok = """{"searchQueries":["inner join explained"],"phetKey":"","visualDescription":"Two overlapping circles."}"""
+        assertThat(errors(AiSchema.RESOURCES_V1, ok)).isEmpty()
+        assertThat(errors(AiSchema.RESOURCES_V1, ok.replace("[\"inner join explained\"]", "[]"))).isNotEmpty()
+    }
 }

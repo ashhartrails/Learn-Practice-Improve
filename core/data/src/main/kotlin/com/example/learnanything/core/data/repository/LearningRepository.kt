@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 enum class ItemRole { TRY_IT, CHECK, QUIZ, PRACTICAL }
-enum class AttemptContext { LESSON, QUIZ, REVIEW, PRACTICAL }
+enum class AttemptContext { LESSON, QUIZ, REVIEW, PRACTICAL, RESCUE }
 
 /** A stored, validated question ready to show. */
 data class StoredItem(val id: String, val role: ItemRole, val topicId: String, val question: Question)

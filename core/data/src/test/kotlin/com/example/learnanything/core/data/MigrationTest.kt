@@ -88,4 +88,19 @@ class MigrationTest {
         assertThat(LearningRepository(db, TestClock()).observeProgress().first().chaptersPassed).isEqualTo(1)
         db.close()
     }
+
+    @Test fun version3DataSurvivesMigrationToVersion4() = runBlocking {
+        val (file, connection) = createAt(3, "migration-test-v4.db")
+        connection.execSQL("INSERT INTO subject VALUES ('s1','SQL joins','Learn SQL','BEGINNER',3,'Summary','ACTIVE',NULL,1,1,NULL)")
+        connection.execSQL("INSERT INTO chapter VALUES ('c1','s1',0,'Basics','Write joins',NULL,NULL,1,NULL)")
+        connection.execSQL("INSERT INTO topic VALUES ('t1','c1',0,'Inner joins','[\"Write one\"]','[]',15,NULL,NULL,1,NULL)")
+        connection.close()
+
+        val db = Room.databaseBuilder<AppDatabase>(context, file.path).setDriver(AndroidSQLiteDriver()).build()
+        assertThat(RoomSubjectRepository(db, TestClock()).observeOutline("s1").first()!!.chapters.single().topics).hasSize(1)
+        val enrichment = com.example.learnanything.core.data.repository.EnrichmentRepository(db, TestClock())
+        enrichment.saveProfile("Developer", "SQL")
+        assertThat(enrichment.profile().background).isEqualTo("Developer")
+        db.close()
+    }
 }

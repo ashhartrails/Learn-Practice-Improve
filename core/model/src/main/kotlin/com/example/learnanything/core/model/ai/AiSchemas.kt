@@ -10,7 +10,9 @@ enum class AiSchema(val resourcePath: String) {
     LESSON_V1("schemas/lesson.v1.json"),
     QUIZ_V1("schemas/quiz.v1.json"),
     PRACTICAL_V1("schemas/practical.v1.json"),
-    GRADE_V1("schemas/grade.v1.json");
+    GRADE_V1("schemas/grade.v1.json"),
+    RESCUE_V1("schemas/rescue.v1.json"),
+    RESOURCES_V1("schemas/resources.v1.json");
 
     /** Stable identifier included in cache keys, e.g. `outline.v1`. */
     val id: String get() = resourcePath.substringAfterLast('/').removeSuffix(".json")

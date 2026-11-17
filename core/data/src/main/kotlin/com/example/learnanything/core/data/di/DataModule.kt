@@ -34,6 +34,7 @@ abstract class DataBindings {
     @Binds abstract fun subjects(impl: RoomSubjectRepository): SubjectRepository
     @Binds abstract fun aiCache(impl: RoomAiCacheStore): AiCacheStore
     @Binds abstract fun geminiSettings(impl: SettingsRepository): GeminiSettings
+    @Binds abstract fun youTubeSettings(impl: SettingsRepository): com.example.learnanything.core.ai.youtube.YouTubeSettings
     @Binds abstract fun secretCipher(impl: KeystoreSecretCipher): SecretCipher
     @Binds abstract fun timeSource(impl: SystemTimeSource): TimeSource
 }

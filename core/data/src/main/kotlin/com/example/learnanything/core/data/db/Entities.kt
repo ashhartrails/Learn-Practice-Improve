@@ -147,6 +147,47 @@ data class ConceptEntity(
     val deletedAt: Long? = null,
 )
 
+/** A video or simulation chosen for a topic. [sourceRef] is a YouTube video id or a PhET catalog key. */
+@Entity(tableName = "resource", indices = [Index("topicId")])
+data class ResourceEntity(
+    @PrimaryKey val id: String,
+    val topicId: String,
+    /** YOUTUBE, PHET or SEARCH (a query to show as a search chip). */
+    val type: String,
+    val sourceRef: String,
+    val title: String,
+    val startSeconds: Int? = null,
+    val endSeconds: Int? = null,
+    /** 1 (thumbs up) or -1 (thumbs down), null when not rated. */
+    val rating: Int? = null,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+/** One rung of the "I don't get it" ladder that the learner tried, and whether it helped. */
+@Entity(tableName = "rescue_event", indices = [Index("topicId")])
+data class RescueEventEntity(
+    @PrimaryKey val id: String,
+    val topicId: String,
+    val rung: String,
+    val helped: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+/** About the learner, used for analogies. One row with id "me". */
+@Entity(tableName = "learner_profile")
+data class LearnerProfileEntity(
+    @PrimaryKey val id: String,
+    val background: String,
+    val knownSkills: String,
+    /** JSON list of rung names, best first, learnt from rescue events. */
+    val ladderOrderJson: String? = null,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
 /** Projection used by progress screens. */
 data class TopicProgressRow(
     val topicId: String,
