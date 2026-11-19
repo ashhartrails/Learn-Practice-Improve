@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.learnanything.core.ai.gemini.GeminiSettings
 import com.example.learnanything.core.ai.youtube.YouTubeSettings
+import com.example.learnanything.core.ai.openai.CompatibleSettings
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,7 @@ data class GeminiKeyState(val saved: Boolean, val lastFour: String?)
 class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val cipher: SecretCipher,
-) : GeminiSettings, YouTubeSettings {
+) : GeminiSettings, YouTubeSettings, CompatibleSettings {
 
     val geminiKey: Flow<GeminiKeyState> = dataStore.data.map {
         GeminiKeyState(saved = it[GEMINI_KEY] != null, lastFour = it[GEMINI_KEY_HINT])
@@ -68,6 +69,44 @@ class SettingsRepository @Inject constructor(
             it.remove(YOUTUBE_KEY_HINT)
         }
     }
+
+    // --- OpenAI-compatible providers (Groq, OpenRouter), keyed by provider id.
+
+    fun compatibleKey(providerId: String): Flow<GeminiKeyState> = dataStore.data.map {
+        GeminiKeyState(saved = it[keyOf(providerId)] != null, lastFour = it[hintOf(providerId)])
+    }
+
+    fun compatibleModel(providerId: String): Flow<String?> = dataStore.data.map { it[modelOf(providerId)] }
+
+    suspend fun saveCompatibleKey(providerId: String, key: String) {
+        val trimmed = key.trim()
+        require(trimmed.isNotEmpty()) { "Key is empty" }
+        val encrypted = cipher.encrypt(trimmed)
+        dataStore.edit {
+            it[keyOf(providerId)] = encrypted
+            it[hintOf(providerId)] = trimmed.takeLast(4)
+        }
+    }
+
+    suspend fun clearCompatibleKey(providerId: String) {
+        dataStore.edit {
+            it.remove(keyOf(providerId))
+            it.remove(hintOf(providerId))
+            it.remove(modelOf(providerId))
+        }
+    }
+
+    suspend fun setCompatibleModel(providerId: String, modelId: String?) {
+        dataStore.edit { if (modelId == null) it.remove(modelOf(providerId)) else it[modelOf(providerId)] = modelId }
+    }
+
+    override suspend fun apiKey(providerId: String): String? = dataStore.data.first()[keyOf(providerId)]?.let(cipher::decrypt)
+
+    override suspend fun selectedModel(providerId: String): String? = dataStore.data.first()[modelOf(providerId)]
+
+    private fun keyOf(id: String) = stringPreferencesKey("${id}_api_key_enc")
+    private fun hintOf(id: String) = stringPreferencesKey("${id}_api_key_last4")
+    private fun modelOf(id: String) = stringPreferencesKey("${id}_model")
 
     override suspend fun youTubeKey(): String? = dataStore.data.first()[YOUTUBE_KEY]?.let(cipher::decrypt)
 

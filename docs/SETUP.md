@@ -209,3 +209,23 @@ Backups go to a hidden app folder in your Drive. You won't see them in the Drive
 **No setup? Use a file instead:** on phone 1 tap **Export file** and save it to Drive, Downloads or anywhere else. On phone 2 tap **Import file**, choose it, and pick **Replace**.
 
 **Merge or Replace?** Merge keeps both phones' progress (for each record, the newest change wins, and deletions carry over). Replace makes the phone match the backup exactly.
+
+## Optional: more free AI (Groq and OpenRouter)
+
+These are fallbacks. When Gemini is busy, out of quota or its answer fails the app's checks, the app tries Groq next, then OpenRouter. Every answer goes through the same checks. You can add either, both or neither.
+
+### Groq (very fast, free tier)
+1. Open **console.groq.com** and sign in (a Google account works).
+2. In the left menu, click **API Keys**, then **Create API Key**. Name it "Learn Anything", then click **Submit**.
+3. Copy the key (it starts with `gsk_`). Groq shows it only once.
+4. In the app, open **You → ⚙ Settings → More free AI → Paste Groq key**, then tap **Save and test**. You should see "Key works. N free models available."
+
+### OpenRouter (many providers' free models)
+1. Open **openrouter.ai** and sign in.
+2. Click your profile picture (top right), then **Keys → Create Key**. Name it, leave the credit limit empty, then click **Create**.
+3. Copy the key (it starts with `sk-or-`).
+4. In the app, paste it under **OpenRouter** and tap **Save and test**. Only free models are listed and used, so nothing is ever charged.
+
+**Model:** "Automatic" picks the largest free chat model the service offers right now. Tap **Model** to choose another. The list always comes live from the service.
+
+**Free limits:** each service has daily request limits, and they change without notice. When one runs out, the app moves on to the next service. OpenRouter's free models allow more requests per day once the account has ever had a small credit top-up.

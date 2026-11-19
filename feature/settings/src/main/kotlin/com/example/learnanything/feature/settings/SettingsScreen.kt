@@ -72,6 +72,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             if (state.keySaved) {
                 ModelCard(state, onOpenPicker = { pickerOpen = true }, onRetry = viewModel::loadModels)
             }
+            MoreProvidersCard()
             EnrichmentSettingsCards()
             BackupCard()
             PrivacyCard()
@@ -211,7 +212,7 @@ private fun PrivacyCard() {
             Text("Privacy", style = MaterialTheme.typography.titleMedium)
             listOf(
                 "Your API keys are encrypted with a key held in this phone's secure hardware. They are never backed up or shared.",
-                "Your goals and answers are sent to the AI provider you choose (Gemini today) to build your course.",
+                "Your goals and answers are sent to the AI providers you add (Gemini, and Groq or OpenRouter if you add their keys) to build your course.",
                 "On Gemini's free tier, Google may use what you send to improve its products. Check Google's terms in AI Studio.",
                 "Your courses and progress stay on this phone unless you turn on Drive backup, which stores them in a hidden app folder in your own Google Drive.",
             ).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }

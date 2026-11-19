@@ -11,7 +11,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
+import com.example.learnanything.core.ai.openai.CompatibleSettings
+import com.example.learnanything.core.ai.openai.OpenAiCompatibleProvider
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 
@@ -42,7 +45,22 @@ object AiModule {
     fun gemini(http: OkHttpClient, settings: GeminiSettings, json: Json): GeminiProvider =
         GeminiProvider(http, settings, json)
 
-    /** Fallback order. M0 has one provider; later milestones read the learner's order from settings. */
+    @Provides @Singleton @Named("groq")
+    fun groq(http: OkHttpClient, settings: CompatibleSettings, json: Json): OpenAiCompatibleProvider =
+        OpenAiCompatibleProvider(OpenAiCompatibleProvider.GROQ, http, settings, json)
+
+    @Provides @Singleton @Named("openrouter")
+    fun openRouter(http: OkHttpClient, settings: CompatibleSettings, json: Json): OpenAiCompatibleProvider =
+        OpenAiCompatibleProvider(OpenAiCompatibleProvider.OPENROUTER, http, settings, json)
+
+    /**
+     * Fallback order: Gemini, then Groq, then OpenRouter. Only providers with a key take part.
+     * A rate limit, a failed check or an outage on one moves the call to the next.
+     */
     @Provides @Singleton
-    fun providers(gemini: GeminiProvider): List<@JvmSuppressWildcards AiProvider> = listOf(gemini)
+    fun providers(
+        gemini: GeminiProvider,
+        @Named("groq") groq: OpenAiCompatibleProvider,
+        @Named("openrouter") openRouter: OpenAiCompatibleProvider,
+    ): List<@JvmSuppressWildcards AiProvider> = listOf(gemini, groq, openRouter)
 }
