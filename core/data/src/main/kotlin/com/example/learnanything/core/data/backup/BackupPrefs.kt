@@ -28,23 +28,31 @@ class BackupPrefs @Inject constructor(private val dataStore: DataStore<Preferenc
     suspend fun accountEmail(): String? = dataStore.data.first()[EMAIL]
     suspend fun isEnabled(): Boolean = dataStore.data.first()[ENABLED] == true
 
-    suspend fun enable(email: String?) = dataStore.edit {
-        it[ENABLED] = true
-        if (email.isNullOrBlank()) it.remove(EMAIL) else it[EMAIL] = email
-        it.remove(LAST_ERROR)
+    suspend fun enable(email: String?) {
+        dataStore.edit {
+            it[ENABLED] = true
+            if (email.isNullOrBlank()) it.remove(EMAIL) else it[EMAIL] = email
+            it.remove(LAST_ERROR)
+        }
     }
 
-    suspend fun disable() = dataStore.edit {
-        it[ENABLED] = false
-        it.remove(EMAIL)
+    suspend fun disable() {
+        dataStore.edit {
+            it[ENABLED] = false
+            it.remove(EMAIL)
+        }
     }
 
-    suspend fun recordSuccess(at: Long) = dataStore.edit {
-        it[LAST_AT] = at
-        it.remove(LAST_ERROR)
+    suspend fun recordSuccess(at: Long) {
+        dataStore.edit {
+            it[LAST_AT] = at
+            it.remove(LAST_ERROR)
+        }
     }
 
-    suspend fun recordError(message: String) = dataStore.edit { it[LAST_ERROR] = message }
+    suspend fun recordError(message: String) {
+        dataStore.edit { it[LAST_ERROR] = message }
+    }
 
     private companion object {
         val ENABLED = booleanPreferencesKey("backup_enabled")

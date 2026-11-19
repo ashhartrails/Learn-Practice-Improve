@@ -159,4 +159,53 @@ The debug APK ends up in `app/build/outputs/apk/debug/app-debug.apk`.
 | "Gemini is busy right now" | Google's servers are overloaded. The app already retried twice. Wait a minute, or pick a **flash-lite** model. |
 | "Gemini took too long to answer" | Try again, or pick a faster **flash** or **flash-lite** model. |
 | "The code runner stopped responding" | Tap the button again; the runner restarts itself. |
+| "Couldn't ask Google for Drive access" or error 10 | The Android client's package name or SHA-1 doesn't match. Repeat M4 step 3 with the SHA-1 from **signingReport**. |
+| "Access blocked: app has not completed verification" | Add your Gmail under **Audience → Test users** (M4 step 2.4). |
 | Phone not listed in Studio | Re-plug the cable, check that the USB debugging popup was accepted, try another cable or port. |
+
+## M4: Google Drive backup (one-time Google Cloud setup)
+
+Drive backup needs Google to know your app. This is a one-time setup of about 10 minutes, in the same Google Cloud project as your keys. **Export file / Import file** works without any of it.
+
+### 1. Turn on the Drive API
+1. Open **console.cloud.google.com** and pick your project at the top (the one your Gemini key belongs to).
+2. In the search bar, type **Google Drive API**, open it, and click **Enable**.
+
+### 2. Set up the consent screen
+1. In the left menu, open **Google Auth Platform** (on older consoles: **APIs & Services → OAuth consent screen**). Click **Get started** if asked.
+2. **App information:** app name "Learn Anything", and your email as the support email. Click **Next**.
+3. **Audience:** choose **External**, then click **Next**. Enter your email as the contact, agree, and click **Create**.
+4. Open **Audience**. Under **Test users**, click **+ Add users**, add your own Gmail address and click **Save**. While the app is in "Testing", only test users can sign in, which is right for personal use.
+5. Open **Data access**, click **Add or remove scopes**, search for **drive.appdata**, tick `.../auth/drive.appdata` ("See, create, and delete its own configuration data in your Google Drive"), click **Update**, then **Save**.
+
+### 3. Tell Google about the app on your computer (Android client)
+1. Find your debug signing fingerprint. In Android Studio, open the **Gradle** panel (the elephant icon on the right), then **LearnAnything → app → Tasks → android → signingReport**, and double-click it. Or, in the **Terminal** tab, run `./gradlew :app:signingReport`.
+2. In the output, find **Variant: debug** and copy the **SHA1** line (it looks like `AB:CD:…`).
+3. Back in the console, open **Google Auth Platform → Clients → + Create client**.
+4. Set **Application type** to **Android**, **Package name** to `com.example.learnanything`, and paste the SHA-1. Click **Create**.
+
+Every phone you install on from this computer uses the same debug fingerprint. A different computer has a different one, so add another Android client for its SHA-1. If you later rename the package, create a new Android client too.
+
+### 4. Optional: account picker sign-in (web client)
+Without this step, Google's own Drive permission screen lets you pick the account, which is enough. If you also want the standard "Sign in with Google" sheet:
+1. Open **Clients → + Create client → Web application**, name it, and click **Create**.
+2. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`).
+3. In Android Studio, open `local.properties` in the project root and add a line: `google.webClientId=PASTE_CLIENT_ID`. This file is never committed.
+4. Click **File → Sync Project with Gradle Files**, then **Run ▶**.
+
+### 5. Turn backup on
+1. In the app, open **You → ⚙ Settings → Backup** and tap **Turn on Drive backup**.
+2. Pick your Google account and allow access. Google warns that the app isn't verified, which is expected while it's in Testing: tap **Continue**.
+3. The first backup runs straight away. After that the app backs up daily on Wi-Fi, and a couple of minutes after you finish a chapter. **Back up now** runs one immediately.
+
+Backups go to a hidden app folder in your Drive. You won't see them in the Drive app, and the app can't see your other files. The newest 5 are kept. API keys, model files and the AI cache are never included.
+
+### M4 gate: restore on a second phone
+1. On phone 1: **Settings → Backup → Back up now**.
+2. Install the app on phone 2 from the same computer (plug it in, pick it in the device menu, then click **Run ▶**).
+3. On phone 2: **Settings → Backup → Turn on Drive backup** with the same Google account. Then tap **Restore from Drive**, pick the newest backup, and tap **Replace**.
+4. Check that phone 2 shows the same courses, finished topics, quiz and practical results, and the same streak and mastery on **You**.
+
+**No setup? Use a file instead:** on phone 1 tap **Export file** and save it to Drive, Downloads or anywhere else. On phone 2 tap **Import file**, choose it, and pick **Replace**.
+
+**Merge or Replace?** Merge keeps both phones' progress (for each record, the newest change wins, and deletions carry over). Replace makes the phone match the backup exactly.

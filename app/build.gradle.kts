@@ -45,11 +45,15 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.compose.material.icons.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Robolectric smoke test: launches the real activity, Hilt graph, Room and navigation.
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.robolectric)
+    testImplementation(libs.datastore.preferences)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.room3.runtime)
     testImplementation(libs.androidx.sqlite.framework)
