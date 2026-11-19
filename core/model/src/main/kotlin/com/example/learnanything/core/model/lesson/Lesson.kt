@@ -40,7 +40,7 @@ data class LessonContext(
 
 object LessonRules {
     const val MIN_CARDS = 5
-    const val MIN_AVERAGE_WORDS = 60
+    const val MIN_AVERAGE_WORDS = 40
 
     fun check(l: LessonResponse): List<String> {
         val p = mutableListOf<String>()
