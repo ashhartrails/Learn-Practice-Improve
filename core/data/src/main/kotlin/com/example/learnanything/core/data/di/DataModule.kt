@@ -36,6 +36,7 @@ abstract class DataBindings {
     @Binds abstract fun geminiSettings(impl: SettingsRepository): GeminiSettings
     @Binds abstract fun youTubeSettings(impl: SettingsRepository): com.example.learnanything.core.ai.youtube.YouTubeSettings
     @Binds abstract fun secretCipher(impl: KeystoreSecretCipher): SecretCipher
+    @Binds abstract fun driveAuth(impl: com.example.learnanything.core.data.backup.GoogleDriveAuth): com.example.learnanything.core.data.backup.DriveAuth
     @Binds abstract fun timeSource(impl: SystemTimeSource): TimeSource
 }
 
