@@ -1,0 +1,45 @@
+{
+  "title": "ChapterPractical",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "title", "task", "starterCode", "tests", "referenceSolution", "sqlSetup", "ordered", "rubric", "modelAnswer"],
+  "properties": {
+    "kind": { "type": "string", "enum": ["python", "javascript", "sql", "numeric", "written"] },
+    "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+    "task": { "type": "string", "minLength": 20, "maxLength": 2500 },
+    "starterCode": { "type": "string", "maxLength": 4000 },
+    "tests": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "code"],
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+          "code": { "type": "string", "minLength": 3, "maxLength": 1500 }
+        }
+      }
+    },
+    "referenceSolution": { "type": "string", "maxLength": 6000 },
+    "sqlSetup": { "type": "string", "maxLength": 6000 },
+    "ordered": { "type": "boolean" },
+    "number": { "type": ["number", "null"] },
+    "tolerance": { "type": ["number", "null"] },
+    "unit": { "type": ["string", "null"], "maxLength": 20 },
+    "rubric": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "points"],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 5, "maxLength": 300 },
+          "points": { "type": "integer" }
+        }
+      }
+    },
+    "modelAnswer": { "type": "string", "maxLength": 4000 }
+  }
+}
