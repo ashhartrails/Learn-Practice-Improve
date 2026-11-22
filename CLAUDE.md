@@ -19,6 +19,10 @@ A personal Android tutor. The learner types a goal ("SQL joins", "basics of ther
 - **2026-11-19 (M4.5, free fallbacks):** `OpenAiCompatibleProvider` (one class for any OpenAI-compatible API) is registered for Groq (`api.groq.com/openai/v1`) and OpenRouter (`openrouter.ai/api/v1`, free models only: `:free` ids or zero pricing). Fallback order is fixed for now: Gemini, then Groq, then OpenRouter; only providers with a key take part. Models come live from `/models` and are ranked by traits (non-chat models dropped, then the parameter count in the id, larger first), never by name; the learner can pick one. Structured output tries `response_format: json_schema` (shape-only schema, as for Gemini, with the full schema in the system message), then `json_object`, then none, when a model rejects it; every reply is still validated locally. 401/403 means a bad key, and 402/429 is treated as a rate limit. Keys are encrypted like the Gemini key. A user-editable fallback order is still to do.
 - **ML Kit `genai-prompt` is still beta only** (1.0.0-beta5 as of 2026-11-16). Re-check before M5.
 
+## Picking up in a new session
+
+Read `docs/HANDOVER.md` first: current status, next steps and how to build.
+
 ## Owner context
 
 - The owner is an experienced Salesforce developer and architect, but newer to Android. When a step needs Android Studio, Google Cloud Console or the phone itself, give exact click-by-click instructions.
